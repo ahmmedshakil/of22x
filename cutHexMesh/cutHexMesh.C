@@ -2,7 +2,7 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     |
-    \\  /    A nd           | Copyright (C) 2011-2013 OpenFOAM Foundation
+    \\  /    A nd           | Copyright held by original author
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
@@ -22,13 +22,10 @@ License
     along with OpenFOAM.  If not, see <http://www.gnu.org/licenses/>.
 
 Application
-    refineWallLayer
+    cutHexMesh
 
 Description
-    Utility to refine cells next to patches.
-
-    Takes a patchName and number of layers to refine. Works out cells within
-    these layers and refines those in the wall-normal direction.
+    Utility to mesh STL-Surfaces using a cut-cell approach.
 
 \*---------------------------------------------------------------------------*/
 
