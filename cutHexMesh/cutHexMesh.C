@@ -44,9 +44,15 @@ Description
 #include "meshTools.H"
 #include "triangle.H"
 #include "triSurface.H"
+#include "unitConversion.H"
 
 
 using namespace Foam;
+
+namespace Foam
+{
+    scalar alignedCos_ = cos(degToRad(89.0));
+}
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -67,7 +73,8 @@ int main(int argc, char *argv[])
     const fileName surfName = args[1];
 //    const scalar featureAngle = args.argRead<scalar>(2);
     
-    triSurface surf(runTime.constantPath()/"triSurface"/surfName);
+    triSurface surf(runTime.constantPath()/"triSurface"/surfName);    
+    const vectorField& normals = surf.faceNormals();
     
 
     pointField points = mesh.points();
@@ -76,6 +83,7 @@ int main(int argc, char *argv[])
     {
         edgeLabels[i] = i;
     }
+    const edgeList edges = mesh.edges();
     
     
     triSurfaceSearch querySurf(surf);
@@ -90,74 +98,147 @@ int main(int argc, char *argv[])
     
 //    DynamicList<scalar> allCutEdgeWeights;
     DynamicList<label> allCutEdges(mesh.nEdges()); 
-    DynamicList<List<pointIndexHit> > intersections(mesh.nEdges());
+    labelHashSet allCutPoints(mesh.nPoints()); 
+    List<List<pointIndexHit> > intersections(mesh.nEdges());
+    List<List<pointIndexHit> > edgeIntersections(mesh.nEdges());
+    List<List<pointIndexHit> > pointIntersections(mesh.nPoints());
+    
+    
+    List<List<label> > intersectionTypes(mesh.nEdges());
     
     Info << "find hits" << nl;
+    
+    
     
     forAll(edgeLabels, i)
     {
         label edgeI = edgeLabels[i];
-        const edge& e = mesh.edges()[edgeI];
-        const point& pStart = points[e.start()] ;
-        const point& pEnd = points[e.end()] ;
-    
-
-        List<pointIndexHit> hitList(0);
-        searchSurf.findLineAll(pStart, pEnd, hitList);
-
+        const edge e = edges[edgeI];
+        const point pStart = points[e.start()] ;
+        const point pEnd = points[e.end()] ;
         
-        if(hitList.size())
-        {
-            allCutEdges.append(edgeI);
-        }
+        bool isCut = false;
         
-        intersections.append(hitList);
-        
-    }
-    
-    
-    Info << "ready" << nl;
-    
-    
-    forAll(allCutEdges, i)
-    {
-        label edgeI = allCutEdges[i];
-        const edge& e = mesh.edges()[edgeI];
-        const point& pStart = points[e.start()] ;
-        const point& pEnd = points[e.end()] ;
+        point p0 = pStart;
+        const point p1 = pEnd;
         
     
         const vector eVec(pEnd - pStart);
         const scalar eMag = mag(eVec);
         const vector n(eVec/(eMag + VSMALL));
-        // Smallish length for intersection calculation errors.
         const point tolVec = 1e-6*eVec;
-        
-        List<pointIndexHit> edgeIntersections = intersections[edgeI];
-        
-        forAll(edgeIntersections, i)
+    
+
+        DynamicList<pointIndexHit> currentIntersections(100);        
+        DynamicList<label> currentIntersectionTypes(100);
+                
+        while(true)
         {
-            pointIndexHit interI = edgeIntersections[i];
-            if (mag(interI.hitPoint() - pStart) < 0.1)
-            {
-            }
-            else if (mag(interI.hitPoint() - pEnd) < 0.1)
+            pointIndexHit pHit = tree.findLine(p0, p1);
+            
+//            Info << pHit << nl;
+            
+            if(pHit.hit())
             {
                 
+                if (mag(pHit.hitPoint() - pStart) < 0.1 * eMag)
+                {
+                    const label startPoint = e.start();
+                    pointIntersections[startPoint].append(pHit);
+                    allCutPoints.insert(startPoint);
+                }
+                else if (mag(pHit.hitPoint() - pEnd) < 0.1 * eMag)
+                {
+                    const label endPoint = e.end();
+                    pointIntersections[endPoint].append(pHit);
+                    allCutPoints.insert(endPoint);
+                    break;
+                }
+//                else if (mag(n & normals[pHit.index()]) < alignedCos_)
+//                {
+//                    edgeEnd = 2;
+//                }
+                else
+                {
+                    edgeIntersections[edgeI].append(pHit);
+                    isCut = true;
+                    
+//                    currentIntersectionTypes.append(edgeEnd);
+                }
+                
+                
+//                currentIntersections.append(pHit);
+                
+                
+                
+//                if (edgeEnd == 1)
+//                {
+//                    // Close to end
+//                    break;
+//                }            
+//                else
+//                {
+                    // Continue tracking. Shift by a small amount.
+                    p0 = pHit.hitPoint() + tolVec;
+//                }
+                
             }
-            
-        } 
+            else
+            {
+                // No hit.
+                break;
+            }
+        }
         
         
+        if(isCut)
+        {
+            allCutEdges.append(edgeI);
+        }
         
-    } 
-      
-//    Info << "intersections : " << intersections << nl;
+        
+//        intersections[edgeI].transfer(currentIntersections);
+//        intersectionTypes[edgeI].transfer(currentIntersectionTypes);
+    }
+    
+    Info << "ready" << nl;
+    
+    Info << edgeIntersections << nl;
+    Info << pointIntersections << nl;
+    Info << allCutEdges << nl;
+    Info << allCutPoints.toc() << nl;
     
     
-//    Info << "allcutEdges : " << allCutEdges << nl;
+//    forAll(allCutEdges, i)
+//    {
+//        const label edgeI = allCutEdges[i];
+//        const labelList intersectionTypesI = intersectionTypes[edgeI];
+//        
+//        forAll(intersectionTypesI, i)
+//        {
+//            const label intersectionType = intersectionTypesI[i];
+//            
+//            Info << "Type of " << intersections[edgeI][i] << " is " << intersectionType << nl;
+//            
+//            if(intersectionType == 0)
+//            {
+//                
+//            }
+//            else if(intersectionType == 1)
+//            {
+////                intersections[edgeI][i] = NULL;
+//            }
+//        } 
+//    } 
+//    
     
-//    Info << "cells : " << mesh.cells() << nl;
+    
+    
+    
+    
+    
+    
+    
     
     
     List<label> nFacesCutEdges(mesh.nFaces(), 0);
@@ -353,24 +434,35 @@ int main(int argc, char *argv[])
 //    cutEdgeWeights.transfer(allCutEdgeWeights);
 //    allCutEdgeWeights.clear();
 
-    // Gets cuts across cells from cuts through edges.
+//     Gets cuts across cells from cuts through edges.
+//    DynamicList<scalar> allcutEdgeWeights(3);
+//    
+//    allcutEdgeWeights.append(0.5);
+//    allcutEdgeWeights.append(0.5);
+//    allcutEdgeWeights.append(0.5);
+//    allcutEdgeWeights.append(0.5);
+//    
+//    scalarField cutEdgeWeights;    
+//    cutEdgeWeights.transfer(allcutEdgeWeights);
+
+
 //    cellCuts cuts
 //    (
 //        mesh,
-//        labelList(0),       // cut vertices
+//        allCutPoints.toc(),       // cut vertices
 //        allCutEdges,        // cut edges
 //        cutEdgeWeights      // weight on cut edges
 //    );
 
 //    polyTopoChange meshMod(mesh);
 
-    // Cutting engine
+//    // Cutting engine
 //    meshCutter cutter(mesh);
 
-    // Insert mesh refinement into polyTopoChange.
+//    // Insert mesh refinement into polyTopoChange.
 //    cutter.setRefinement(cuts, meshMod);
 
-    // Do all changes
+//    // Do all changes
 //    Info<< "Morphing ..." << endl;
 
 
@@ -381,9 +473,9 @@ int main(int argc, char *argv[])
 //        mesh.movePoints(morphMap().preMotionPoints());
 //    }
 
-    // Update stored labels on meshCutter.
+//    // Update stored labels on meshCutter.
 //    cutter.updateMesh(morphMap());
-   
+//   
        
     if (!overwrite)
     {
