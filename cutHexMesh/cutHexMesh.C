@@ -67,7 +67,7 @@ int main(int argc, char *argv[])
     const fileName surfName = args[1];
 //    const scalar featureAngle = args.argRead<scalar>(2);
     
-    triSurface surf(surfName);
+    triSurface surf(runTime.constantPath()/"triSurface"/surfName);
     
 
     pointField points = mesh.points();
