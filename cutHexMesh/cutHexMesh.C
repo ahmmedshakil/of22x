@@ -43,6 +43,7 @@ Description
 #include "treeBoundBox.H"
 #include "meshTools.H"
 #include "triangle.H"
+#include "polyTopoChange.H"
 #include "triSurface.H"
 #include "unitConversion.H"
 
@@ -96,10 +97,8 @@ int main(int argc, char *argv[])
     label nHits = 0;
     
     
-//    DynamicList<scalar> allCutEdgeWeights;
     DynamicList<label> allCutEdges(mesh.nEdges()); 
-    labelHashSet allCutPoints(mesh.nPoints()); 
-    List<List<pointIndexHit> > intersections(mesh.nEdges());
+    List<bool> cutPoints(mesh.nPoints(), false); 
     List<List<pointIndexHit> > edgeIntersections(mesh.nEdges());
     List<List<pointIndexHit> > pointIntersections(mesh.nPoints());
     
@@ -126,17 +125,11 @@ int main(int argc, char *argv[])
         const vector eVec(pEnd - pStart);
         const scalar eMag = mag(eVec);
         const vector n(eVec/(eMag + VSMALL));
-        const point tolVec = 1e-6*eVec;
-    
-
-        DynamicList<pointIndexHit> currentIntersections(100);        
-        DynamicList<label> currentIntersectionTypes(100);
+        const point tolVec = 1e-6*eVec;  
                 
         while(true)
         {
             pointIndexHit pHit = tree.findLine(p0, p1);
-            
-//            Info << pHit << nl;
             
             if(pHit.hit())
             {
@@ -145,13 +138,15 @@ int main(int argc, char *argv[])
                 {
                     const label startPoint = e.start();
                     pointIntersections[startPoint].append(pHit);
-                    allCutPoints.insert(startPoint);
+//                    allCutPoints.insert(startPoint);
+                    cutPoints[startPoint] = true;
                 }
                 else if (mag(pHit.hitPoint() - pEnd) < 0.1 * eMag)
                 {
                     const label endPoint = e.end();
                     pointIntersections[endPoint].append(pHit);
-                    allCutPoints.insert(endPoint);
+//                    allCutPoints.insert(endPoint);
+                    cutPoints[endPoint] = true;
                     break;
                 }
 //                else if (mag(n & normals[pHit.index()]) < alignedCos_)
@@ -162,25 +157,8 @@ int main(int argc, char *argv[])
                 {
                     edgeIntersections[edgeI].append(pHit);
                     isCut = true;
-                    
-//                    currentIntersectionTypes.append(edgeEnd);
                 }
-                
-                
-//                currentIntersections.append(pHit);
-                
-                
-                
-//                if (edgeEnd == 1)
-//                {
-//                    // Close to end
-//                    break;
-//                }            
-//                else
-//                {
-                    // Continue tracking. Shift by a small amount.
                     p0 = pHit.hitPoint() + tolVec;
-//                }
                 
             }
             else
@@ -190,61 +168,40 @@ int main(int argc, char *argv[])
             }
         }
         
-        
         if(isCut)
         {
             allCutEdges.append(edgeI);
         }
-        
-        
-//        intersections[edgeI].transfer(currentIntersections);
-//        intersectionTypes[edgeI].transfer(currentIntersectionTypes);
     }
+    
+    DynamicList<label> allCutPoints(mesh.nPoints()); 
+    
+    forAll(cutPoints, i)
+    {
+        bool cutPointI = cutPoints[i];
+        if(cutPointI)
+        {
+            allCutPoints.append(i);
+        }
+    }
+    
     
     Info << "ready" << nl;
     
-    Info << edgeIntersections << nl;
-    Info << pointIntersections << nl;
-    Info << allCutEdges << nl;
-    Info << allCutPoints.toc() << nl;
-    
-    
-//    forAll(allCutEdges, i)
-//    {
-//        const label edgeI = allCutEdges[i];
-//        const labelList intersectionTypesI = intersectionTypes[edgeI];
-//        
-//        forAll(intersectionTypesI, i)
-//        {
-//            const label intersectionType = intersectionTypesI[i];
-//            
-//            Info << "Type of " << intersections[edgeI][i] << " is " << intersectionType << nl;
-//            
-//            if(intersectionType == 0)
-//            {
-//                
-//            }
-//            else if(intersectionType == 1)
-//            {
-////                intersections[edgeI][i] = NULL;
-//            }
-//        } 
-//    } 
+//    Info << allCutEdges << nl;
+//    Info << edgeIntersections << nl;
 //    
+//    Info << allCutPoints << nl;
+//    Info << pointIntersections << nl;
+//    
+
+
+
+
+    List<label> nFaceCuts(mesh.nFaces(), 0);
     
     
-    
-    
-    
-    
-    
-    
-    
-    
-    List<label> nFacesCutEdges(mesh.nFaces(), 0);
-    
-    
-    labelHashSet allCutFaces(mesh.nFaces());
+    List<bool> cutFaces(mesh.nFaces(), false);
     
     labelListList facesCutEdges(mesh.nFaces());
     
@@ -256,15 +213,44 @@ int main(int argc, char *argv[])
         forAll(cutEdgeFaces, i)
         {
             const label cutEdgeFaceI = cutEdgeFaces[i];
-            nFacesCutEdges[cutEdgeFaceI]++;
-            if(nFacesCutEdges[cutEdgeFaceI] >= 2)
-            {
-                allCutFaces.insert(cutEdgeFaceI);
-            }
+            nFaceCuts[cutEdgeFaceI]++;
             
             facesCutEdges[cutEdgeFaceI].append(cutEdgeI);
         }
     }
+    
+    
+    
+    labelListList facesCutPoints(mesh.nPoints());
+    
+    forAll(allCutPoints, i)
+    {
+        const label cutPointI = allCutEdges[i];
+        const labelList cutPointFaces = mesh.pointFaces()[cutPointI];
+        
+        forAll(cutPointFaces, i)
+        {
+            const label cutPointFaceI = cutPointFaces[i];
+            nFaceCuts[cutPointFaceI]++;
+            
+            facesCutPoints[cutPointFaceI].append(cutPointI);
+        }
+    }
+    
+    
+    DynamicList<label> allCutFaces(mesh.nFaces());
+    
+    forAll(nFaceCuts, i)
+    {
+        bool cutPointI = cutPoints[i];
+        if(cutPointI)
+        {
+            allCutPoints.append(i);
+        }
+    }
+    
+    
+    
     
     const labelList owner = mesh.faceOwner();
     const labelList neighbour = mesh.faceNeighbour();
@@ -285,84 +271,89 @@ int main(int argc, char *argv[])
     
 //    Info << "allCutFaces : " << allCutFaces << nl;
     
-    forAll(allCutFaces, i)
-    {
-        const label cutFaceI = allCutFaces.toc()[i];
-        const label cutFaceOwner = owner[cutFaceI];
-        
-        nCellsCutFaces[cutFaceOwner]++;
-        cellsCutFaces[cutFaceOwner].append(cutFaceI);
-        if(nCellsCutFaces[cutFaceOwner] >= 3)
-        {
-            allCutCells.insert(cutFaceOwner);
-        }
-        
-        
-        if(cutFaceI < nNeighbour)
-        {
-            const label cutFaceNeighbour = neighbour[cutFaceI];
-            nCellsCutFaces[cutFaceNeighbour]++;
-            cellsCutFaces[cutFaceNeighbour].append(cutFaceI);
-            if(nCellsCutFaces[cutFaceNeighbour] >= 3)
-            {
-                allCutCells.insert(cutFaceNeighbour);
-            }
-        }
-    }
-    
-    allCutCells.shrink();
+//    forAll(allCutFaces, i)
+//    {
+//        const label cutFaceI = allCutFaces.toc()[i];
+//        const label cutFaceOwner = owner[cutFaceI];
+//        
+//        nCellsCutFaces[cutFaceOwner]++;
+//        cellsCutFaces[cutFaceOwner].append(cutFaceI);
+//        if(nCellsCutFaces[cutFaceOwner] >= 3)
+//        {
+//            allCutCells.insert(cutFaceOwner);
+//        }
+//        
+//        
+//        if(cutFaceI < nNeighbour)
+//        {
+//            const label cutFaceNeighbour = neighbour[cutFaceI];
+//            nCellsCutFaces[cutFaceNeighbour]++;
+//            cellsCutFaces[cutFaceNeighbour].append(cutFaceI);
+//            if(nCellsCutFaces[cutFaceNeighbour] >= 3)
+//            {
+//                allCutCells.insert(cutFaceNeighbour);
+//            }
+//        }
+//    }
+//    
+//    allCutCells.shrink();
     
 //    Info  << cellsCutFaces << nl;
     
     
-    forAll(allCutCells, i)
-    {
-        label cutCellI = allCutCells.toc()[i];
-        labelList cutFaces = cellsCutFaces[cutCellI];
-        
-        forAll(cutFaces, i)
-        {
-            label firstFace = cutFaces[i];
-            
-            labelList cutEdges = facesCutEdges[firstFace];
-            label firstEdge = cutEdges[0];
-            
-            List<pointIndexHit> cutPoints = intersections[firstEdge];
-            
-                Info <<  nl;
-                
-            forAll(cutPoints, i)
-            {
-                pointIndexHit firstPoint = cutPoints[i];
-                Info << "this : " << firstPoint << nl;
-            }
-            
-            
-            
-            if(cutEdges.size() >= 2)
-            {
-                for(int k = 1; k < cutEdges.size(); k++)
-                {
-                    label nextEdge = cutEdges[k];
-                    
-                    List<pointIndexHit> nextPoints = intersections[nextEdge];
-                    
-                    forAll(nextPoints, i)
-                    {
-                        pointIndexHit nextPoint = nextPoints[i];
-                        Info << "next : " << nextPoint << nl;
-                    }
-                }
-            }
-            else
-            {
-                Info << "only one Edge" << nl;
-            }
-        
-        }
-        
-    }
+//    forAll(allCutCells, i)
+//    {
+//        label cutCellI = allCutCells.toc()[i];
+//        labelList cutFaces = cellsCutFaces[cutCellI];
+//        
+//        forAll(cutFaces, i)
+//        {
+//            label firstFace = cutFaces[i];
+//            
+//            labelList cutEdges = facesCutEdges[firstFace];
+//            label firstEdge = cutEdges[0];
+//            
+//            List<pointIndexHit> cutPoints = edgeIntersections[firstEdge];
+//            
+//                Info <<  nl;
+//                
+//            forAll(cutPoints, i)
+//            {
+//                pointIndexHit firstPoint = cutPoints[i];
+//                Info << "this : " << firstPoint << nl;
+//            }
+//            
+//            
+//            
+//            if(cutEdges.size() >= 2)
+//            {
+//                for(int k = 1; k < cutEdges.size(); k++)
+//                {
+//                    label nextEdge = cutEdges[k];
+//                    
+//                    List<pointIndexHit> nextPoints = edgeIntersections[nextEdge];
+//                    
+//                    forAll(nextPoints, i)
+//                    {
+//                        pointIndexHit nextPoint = nextPoints[i];
+//                        Info << "next : " << nextPoint << nl;
+//                    }
+//                }
+//            }
+//            else
+//            {
+//                Info << "only one Edge" << nl;
+//            }
+//        
+//        }
+//        
+//    }
     
+    
+
+
+
+
     
     
 //    Info << "allCutEdges : " << allCutEdges << nl;
@@ -418,7 +409,41 @@ int main(int argc, char *argv[])
 
     
     
+    polyTopoChange meshMod(mesh);
     
+    point pc1(0,    0,    0.05);
+    point pc2(0.1,  0,    0.05);
+    point pc3(0.1,  0.1,  0.05);
+    point pc4(0,    0.1,  0.05);
+    
+    
+    label p1 = meshMod.addPoint(pc1, -1, -1, -1);
+    label p2 = meshMod.addPoint(pc2, -1, -1, -1);
+    label p3 = meshMod.addPoint(pc3, -1, -1, -1);
+    label p4 = meshMod.addPoint(pc4, -1, -1, -1);
+    
+    
+    
+//    label fc1[4] = {p1,p2,p3,p4};
+    
+    labelList fc1(4);
+    
+    fc1[0] = p1;
+    fc1[1] = p2;
+    fc1[2] = p3;
+    fc1[3] = p4;
+    
+    face fcc1(fc1);
+    
+    label f1 = meshMod.addFace(fcc1,-1,-1,-1,-1,-1,false,-1,-1,false);
+    
+    
+    autoPtr<mapPolyMesh> morphMap = meshMod.changeMesh(mesh, false);
+
+
+    
+    
+//    meshMod.addPoint
     
     
     
