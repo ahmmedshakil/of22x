@@ -52,89 +52,90 @@ int main(int argc, char *argv[])
     const fileName outFileName = args[2];  
     const scalar maxLength = args.argRead<scalar>(3);
 
-    Info<< "Reading surface from " << surfFileName << " ..." << endl;
-    
-//    Info<< maxLength << nl;
+    Info<< "Reading surface from " << surfFileName << " ..." << endl << endl;
 
-    triSurface surf1(surfFileName);
+    const triSurface& surf1(surfFileName);
     
-    pointField points = surf1.points();
+    triSurface surf2;
     
-    edgeList edges = surf1.edges();
-    
-    List<bool> refineEdges(edges.size(), false);
-    
-    labelListList edgeFaces = surf1.sortedEdgeFaces();
+    triSurface surf = surf1;
     
     
-//    Info << edges << nl;
-//    
-//    Info << surf1.sortedEdgeFaces() << nl;
+    int loopCounter = 1;
     
-    List<bool> refineFaces(surf1.size(), false);
-    
-    forAll(edges, i)
-    {   
-        const edge edgeI = edges[i];
+    while(true)
+    {
+        const pointField points(surf.points());
+        const labelList meshPoints(surf.meshPoints());
+        const edgeList& edges = surf.edges();
+        labelListList edgeFaces = surf.sortedEdgeFaces();
         
-        if(edgeI.mag(points) > maxLength)
-        {
-            for(int k = 0; k < 2; k++)
+        
+        
+        List<bool> refineFaces(surf.size(), false);
+        
+        forAll(edges, i)
+        {   
+            const edge e = surf.edges()[i];
+            const point& pStart = points[meshPoints[e.start()]];
+            const point& pEnd = points[meshPoints[e.end()]];
+
+            const vector eVec(pEnd - pStart);
+            const scalar eMag = mag(eVec);
+            
+            if(eMag > maxLength)
             {
-                label faceI = edgeFaces[i][k];
-                refineFaces[faceI] = true;
+                labelList edgeFacesI = edgeFaces[i];
+                
+                forAll(edgeFacesI, i)
+                {
+                    label faceI = edgeFacesI[i];
+                    refineFaces[faceI] = true;
+                }
             }
         }
-    }
-    
-//    Info << refineEdges << nl;
-    
-    
-//    List<bool> refineFaces(surf1.size(), false);
-//    
-//    forAll(surf1, i)
-//    {
-//        labelledTri faceI = surf1[i];
-//             
-//        Info << faceI << nl;   
-////        if(getEdge
-//        
-//        
-//        for(int k = 0; k < 3; k++)
-//        {
-//            label edgeI = faceI[k];
-//            Info << edgeI << nl;
-//            if(refineEdges[edgeI])
-//            {
-//                refineFaces[i] = true;
-//            }
-//        }
-//    }
-//    
-////    Info << refineFaces << nl;
-//    
-    
-    DynamicList<label> refineF(surf1.size());
-    
-    forAll(refineFaces, i)
-    {
-        if(refineFaces[i])
+        
+        DynamicList<label> refineF(surf.size());
+        
+        forAll(refineFaces, i)
         {
-            refineF.append(i);
+            if(refineFaces[i])
+            {
+                refineF.append(i);
+            }
+        } 
+
+        
+        if(refineF.size() > 0)
+        {
+            surf2 = triSurfaceTools::redGreenRefine(surf, refineF);
+            surf = surf2;
         }
+        else
+        {
+            surf2 = surf;
+            break;
+        }
+        
+        
+        Info << "Loop " << loopCounter << ": " << nl
+             << " Refined triangles: " << refineF.size() << nl;
+             
+        loopCounter++;
     }
     
     
-    
-    Info << refineF << nl;
-    
-//    triSurface refinedSurf = triSurfaceTools::greenRefine(surf1, refineEdges);        
-
-    triSurface refinedSurf = triSurfaceTools::redGreenRefine(surf1, refineF);  
+    Info<< nl
+        << "Original surface:" << endl
+        << " triangles :" << surf1.size() << endl
+        << " vertices(used):" << surf1.nPoints() << endl << endl
+        << "Refined surface:" << endl
+        << " triangles :" << surf2.size() << endl
+        << " vertices(used):" << surf2.nPoints() << endl << endl;
 
     Info<< "Writing refined surface to " << outFileName << " ..." << endl;
 
-    refinedSurf.write(outFileName);
+    surf2.write(outFileName);
 
     Info<< "End\n" << endl;
 

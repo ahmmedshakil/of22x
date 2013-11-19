@@ -66,18 +66,13 @@ label findNextIntersection
    const labelHashSet& nextTris
 )
 {
-//        label startFace = 2;
-//        labelHashSet nextFaces(3);
-//        
-//        nextFaces.insert(1);
-//        nextFaces.insert(1787);
-    
+    label nextIntersection = -1;
     labelHashSet visited(1000);
     
-    
-    label thisEdge =  surf[startTri][0];
-    label lastEdge1 = surf[startTri][1];
-    label lastEdge2 = surf[startTri][2];
+    labelList faceEdges = surf.faceEdges()[startTri];
+    label thisEdge =  faceEdges[1];
+    label lastEdge1 = faceEdges[0];
+    label lastEdge2 = faceEdges[2];
     
     label lastTri = startTri;
     
@@ -97,18 +92,18 @@ label findNextIntersection
             lastTri = tryTri1;
         }
         
-//        Info << lastTri << nl;
-        
         triSurfaceTools::otherEdges(surf, lastTri, thisEdge, lastEdge1, lastEdge2);
         
         if(nextTris[lastTri])
         {
-//            Info << "Found " << lastTri << " after " << i << " visits" << nl;
-            return lastTri;
+            nextIntersection = lastTri;
+            break;
         }
         
         visited.insert(lastTri);
     }
+    
+    return nextIntersection;
 }
     
 
@@ -401,11 +396,12 @@ int main(int argc, char *argv[])
     
     
     
-    label startTriFace = 2;
-    labelHashSet nextTriFaces(2);
+    label startTriFace = 9;
+    labelHashSet nextTriFaces(3);
     
-    nextTriFaces.insert(1);
-    nextTriFaces.insert(1787);
+    nextTriFaces.insert(1052);
+    nextTriFaces.insert(1086);
+    nextTriFaces.insert(805);
     
     label next = findNextIntersection(surf, startTriFace, nextTriFaces);
     
@@ -475,6 +471,7 @@ int main(int argc, char *argv[])
             {
                 
             }
+            break;
         }
     }
     

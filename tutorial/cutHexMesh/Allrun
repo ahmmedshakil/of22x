@@ -11,7 +11,7 @@ then
     cd -
 
     blockMesh > /dev/null
-    cutHexMesh plane1.stl
+    cutHexMesh $1
 fi
     
     
