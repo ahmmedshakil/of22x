@@ -25,7 +25,7 @@ Application
     surfaceRefine
 
 Description
-    Refine edges, which are longer than specified length.
+    Refine faces with edges longer than specified length.
 
 \*---------------------------------------------------------------------------*/
 
@@ -55,11 +55,8 @@ int main(int argc, char *argv[])
     Info<< "Reading surface from " << surfFileName << " ..." << endl << endl;
 
     const triSurface& surf1(surfFileName);
-    
     triSurface surf2;
-    
     triSurface surf = surf1;
-    
     
     int loopCounter = 1;
     
@@ -70,8 +67,6 @@ int main(int argc, char *argv[])
         const edgeList& edges = surf.edges();
         labelListList edgeFaces = surf.sortedEdgeFaces();
         
-        
-        
         List<bool> refineFaces(surf.size(), false);
         
         forAll(edges, i)
@@ -79,7 +74,6 @@ int main(int argc, char *argv[])
             const edge e = surf.edges()[i];
             const point& pStart = points[meshPoints[e.start()]];
             const point& pEnd = points[meshPoints[e.end()]];
-
             const vector eVec(pEnd - pStart);
             const scalar eMag = mag(eVec);
             
@@ -105,7 +99,6 @@ int main(int argc, char *argv[])
             }
         } 
 
-        
         if(refineF.size() > 0)
         {
             surf2 = triSurfaceTools::redGreenRefine(surf, refineF);
@@ -117,13 +110,11 @@ int main(int argc, char *argv[])
             break;
         }
         
-        
         Info << "Loop " << loopCounter << ": " << nl
              << " Refined triangles: " << refineF.size() << nl;
              
         loopCounter++;
     }
-    
     
     Info<< nl
         << "Original surface:" << endl
@@ -134,9 +125,9 @@ int main(int argc, char *argv[])
         << " vertices(used):" << surf2.nPoints() << endl << endl;
 
     Info<< "Writing refined surface to " << outFileName << " ..." << endl;
-
+    
     surf2.write(outFileName);
-
+    
     Info<< "End\n" << endl;
 
     return 0;
