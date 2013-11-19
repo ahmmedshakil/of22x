@@ -58,6 +58,62 @@ namespace Foam
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
+
+label findNextIntersection
+(
+   const triSurface& surf,
+   const label startTri,
+   const labelHashSet& nextTris
+)
+{
+//        label startFace = 2;
+//        labelHashSet nextFaces(3);
+//        
+//        nextFaces.insert(1);
+//        nextFaces.insert(1787);
+    
+    labelHashSet visited(1000);
+    
+    
+    label thisEdge =  surf[startTri][0];
+    label lastEdge1 = surf[startTri][1];
+    label lastEdge2 = surf[startTri][2];
+    
+    label lastTri = startTri;
+    
+    for(int i = 0; i < 1000; i++)
+    {
+        label tryTri1 = triSurfaceTools::otherFace(surf, lastTri, lastEdge1);
+        label tryTri2 = triSurfaceTools::otherFace(surf, lastTri, lastEdge2);
+        
+        if(visited[tryTri1] && tryTri2 != -1)
+        {
+            thisEdge = lastEdge2;
+            lastTri = tryTri2;
+        }
+        else if (tryTri1 != -1)
+        {
+            thisEdge = lastEdge1;
+            lastTri = tryTri1;
+        }
+        
+//        Info << lastTri << nl;
+        
+        triSurfaceTools::otherEdges(surf, lastTri, thisEdge, lastEdge1, lastEdge2);
+        
+        if(nextTris[lastTri])
+        {
+//            Info << "Found " << lastTri << " after " << i << " visits" << nl;
+            return lastTri;
+        }
+        
+        visited.insert(lastTri);
+    }
+}
+    
+
+
+
 int main(int argc, char *argv[])
 {
     #include "addOverwriteOption.H"
@@ -341,55 +397,19 @@ int main(int argc, char *argv[])
 //    Info  << cellsCutFaces << nl;
     
     
-    label startFace = 2;
-    labelHashSet nextFaces(3);
-    
-    nextFaces.insert(1);
-//    nextFaces.insert(9);
-    nextFaces.insert(1787);
-    
-//    label firstEdge = surf[206][0];
-    
-    labelHashSet visited(1000);
     
     
-    label lastEdge1 = surf[startFace][0];
-    label lastEdge2 = surf[startFace][1];
-    label thisEdge =  surf[startFace][2];
-    
-    label lastFace = startFace;
-    
-    for(int i = 0; i < 1000; i++)
-    {
-        label tryFace1 = triSurfaceTools::otherFace(surf, lastFace, lastEdge1);
-        label tryFace2 = triSurfaceTools::otherFace(surf, lastFace, lastEdge2);
-        
-        if(visited[tryFace1] && tryFace2 != -1)
-        {
-            thisEdge = lastEdge2;
-            lastFace = tryFace2;
-        }
-        else if (tryFace1 != -1)
-        {
-            thisEdge = lastEdge1;
-            lastFace = tryFace1;
-        }
-        
-        Info << lastFace << nl;
-        
-        triSurfaceTools::otherEdges(surf, lastFace, thisEdge, lastEdge1, lastEdge2);
-        
-        if(nextFaces[lastFace])
-        {
-            Info << "Found " << lastFace << " after " << i << " visits" << nl;
-            break;
-        }
-        
-        
-        visited.insert(lastFace);
-    }
     
     
+    label startTriFace = 2;
+    labelHashSet nextTriFaces(2);
+    
+    nextTriFaces.insert(1);
+    nextTriFaces.insert(1787);
+    
+    label next = findNextIntersection(surf, startTriFace, nextTriFaces);
+    
+    Info << "Returned " << next << nl;
 
     
     
@@ -401,25 +421,17 @@ int main(int argc, char *argv[])
         forAll(cutFaces, i)
         {
             label firstFace = cutFaces[i];
-            
             labelList cutEdges = cutFaceEdges[firstFace];
             label firstEdge = cutEdges[0];
-            
-//            Info << cutEdges << nl;
-          
-//            Info << firstEdge << nl;
-            
             List<pointIndexHit> cutEdgePoints = edgeIntersections[firstEdge];
-            
-                Info <<  nl;
+        
+            Info <<  nl;
                 
             forAll(cutEdgePoints, i)
             {
                 pointIndexHit firstPoint = cutEdgePoints[i];
                 Info << "this : " << firstPoint << nl;
             }
-            
-            
             
             if(cutEdges.size() >= 2)
             {
@@ -444,14 +456,30 @@ int main(int argc, char *argv[])
             {
                 Info << "only one Edge" << nl;
             }
-        
         }
-        
     }
-//    
-//    
+    
+    
+    forAll(allCutCells, i)
+    {
+        label cutCellI = allCutCells[i];
+        labelList cutFaces = cutCellFaces[cutCellI];
+        label thisFace = cutFaces[0];
+//        label lastEdge = 
+        
+        while(true)
+        {
+            labelList cutEdges = cutFaceEdges[thisFace];
+            
+            if(cutEdges.size() == 2)
+            {
+                
+            }
+        }
+    }
+    
 
-
+    
 
 
     

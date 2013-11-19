@@ -10,7 +10,7 @@ if(wmake)
 then
     cd -
 
-    runApplication blockMesh
+    blockMesh > /dev/null
     cutHexMesh plane1.stl
 fi
     
