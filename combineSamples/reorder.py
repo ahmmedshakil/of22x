@@ -1,6 +1,5 @@
 #!/bin/env python2
 
-import csv, string
 
 setpoints = []
 
@@ -9,7 +8,7 @@ values = []
 POINTS = False
 FIELD = False
 
-with open("points.vtk", "rb") as f:
+with open("postProcessing/sets/0.5/point_p.vtk", "rb") as f:
     for row in f:
         row.strip()
         if row.startswith("POINTS"):
@@ -39,7 +38,7 @@ FIELD = False
 
 surfpoints = []
 
-with open("faces.vtk", "rb") as f:
+with open("postProcessing/surfaces/0.5/p_surfaces.vtk", "rb") as f:
     for row in f:
         if row.startswith("POINTS"):
             POINTS = True
