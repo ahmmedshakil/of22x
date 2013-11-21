@@ -419,18 +419,16 @@ int main(int argc, char *argv[])
     
     
     
-    
-    
-    label startTriFace = 9;
-    labelHashSet nextTriFaces(3);
-    
-    nextTriFaces.insert(1052);
-    nextTriFaces.insert(1086);
-    nextTriFaces.insert(805);
-    
-    label next = findNextIntersection(surf, startTriFace, nextTriFaces);
-    
-    Info << "Returned " << next << nl;
+//    label startTriFace = 9;
+//    labelHashSet nextTriFaces(3);
+//    
+//    nextTriFaces.insert(1052);
+//    nextTriFaces.insert(1086);
+//    nextTriFaces.insert(805);
+//    
+//    label next = findNextIntersection(surf, startTriFace, nextTriFaces);
+//    
+//    Info << "Returned " << next << nl;
 
     
     
@@ -461,10 +459,6 @@ int main(int argc, char *argv[])
                     label nextEdge = cutEdges[k];
                     
                     List<pointIndexHit> nextPoints = edgeIntersections[nextEdge];
-                    
-                    
-                    
-                    
                     
                     forAll(nextPoints, i)
                     {
@@ -509,7 +503,10 @@ int main(int argc, char *argv[])
             
             
             
+            
             Info << intersections << nl;
+            
+            
             
             if(intersections.size() == 2)
             {
@@ -617,9 +614,21 @@ int main(int argc, char *argv[])
     
     
     
-    
+    cellCuts cuts
+    (
+        mesh,
+        surf,
+        allCuts,
+        cutTris,
+        cutEdges,
+        cutPoints,
+        
 
-    
+        allCutPoints,       // cut vertices
+        allCutEdges,        // cut edges
+        cutEdgeWeights,     // weight on cut edges
+        cutTris
+    );
     
     
     
