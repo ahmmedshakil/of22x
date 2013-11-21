@@ -65,7 +65,7 @@ int main(int argc, char *argv[])
     #include "addOverwriteOption.H"
     argList::noParallel();
     argList::validArgs.append("input surfaceFile");
-//    argList::validArgs.append("feature angle");
+    argList::validArgs.append("tolerance");
 
 #   include "setRootCase.H"
 #   include "createTime.H"
@@ -75,10 +75,9 @@ int main(int argc, char *argv[])
 
     const bool overwrite = args.optionFound("overwrite");
     const fileName surfName = args[1];
-//    const scalar featureAngle = args.argRead<scalar>(2);
+    const scalar tol = args.argRead<scalar>(2);
     
     triSurface surf(runTime.constantPath()/"triSurface"/surfName);    
-    const vectorField& normals = surf.faceNormals();
     
 
     pointField points = mesh.points();
@@ -91,26 +90,13 @@ int main(int argc, char *argv[])
     
     
     triSurfaceSearch querySurf(surf);
-    triSurfaceSearch searchSurf(surf);
-    
-    
     
     const indexedOctree<treeDataTriSurface>& tree = querySurf.tree();
     
-    label nHits = 0;
+    Info << "Find points near triSurface" << endl << endl;
     
-    
-    DynamicList<label> allCutEdges(mesh.nEdges()); 
-//    DynamicList<label> allCutEdges(mesh.nEdges()); 
-    List<bool> pointCuts(mesh.nPoints(), false); 
-    List<List<pointIndexHit> > edgeIntersections(mesh.nEdges());
-    List<List<pointIndexHit> > pointIntersections(mesh.nPoints());
-    
-    
-    List<List<label> > intersectionTypes(mesh.nEdges());
-    
-    Info << "find hits" << nl;
-    
+    DynamicList<label> movePoints(mesh.nPoints());
+    DynamicList<point> newLocations(mesh.nPoints());
     
     
     forAll(edgeLabels, i)
@@ -120,16 +106,20 @@ int main(int argc, char *argv[])
         const point pStart = points[e.start()] ;
         const point pEnd = points[e.end()] ;
         
-        bool isCut = false;
-        
         point p0 = pStart;
         const point p1 = pEnd;
         
-    
         const vector eVec(pEnd - pStart);
         const scalar eMag = mag(eVec);
         const vector n(eVec/(eMag + VSMALL));
         const point tolVec = 1e-6*eVec;
+        const scalar eTol = tol * eMag;
+            
+        bool foundStart = false;
+        bool foundEnd = false;
+        
+        pointIndexHit nearHitStart;
+        pointIndexHit nearHitEnd;
                 
         while(true)
         {
@@ -138,30 +128,17 @@ int main(int argc, char *argv[])
             if(pHit.hit())
             {
                 
-                if (mag(pHit.hitPoint() - pStart) < 0.1 * eMag)
+                if (mag(pHit.hitPoint() - pStart) < eTol && !foundStart)
                 {
-                    const label startPoint = e.start();
-                    pointIntersections[startPoint].append(pHit);
-//                    allCutPoints.insert(startPoint);
-                    pointCuts[startPoint] = true;
+                    nearHitStart = tree.findNearest(pStart, eTol);
+                    foundStart = true;
                 }
-                else if (mag(pHit.hitPoint() - pEnd) < 0.1 * eMag)
+                else if (mag(pHit.hitPoint() - pEnd) < eTol)
                 {
-                    const label endPoint = e.end();
-                    pointIntersections[endPoint].append(pHit);
-//                    allCutPoints.insert(endPoint);
-                    pointCuts[endPoint] = true;
-                    break;
+                    nearHitEnd = tree.findNearest(pEnd, eTol);
+                    foundEnd = true;
                 }
-//                else if (mag(n & normals[pHit.index()]) < alignedCos_)
-//                {
-//                    edgeEnd = 2;
-//                }
-                else
-                {
-                    edgeIntersections[edgeI].append(pHit);
-                    isCut = true;
-                }
+                
                 p0 = pHit.hitPoint() + tolVec;
             }
             else
@@ -171,92 +148,47 @@ int main(int argc, char *argv[])
             }
         }
         
-        if(isCut)
+        if(foundStart)
         {
-            allCutEdges.append(edgeI);
+            movePoints.append(e.start());
+            newLocations.append(nearHitStart.hitPoint());
         }
+        
+        if(foundEnd)
+        {
+            movePoints.append(e.end());
+            newLocations.append(nearHitEnd.hitPoint());
+        }
+        
     }
     
-    DynamicList<label> cutPoints(mesh.nPoints()); 
+    movePoints.shrink();
+    newLocations.shrink();
     
-    forAll(pointCuts, i)
+    Info<< "Moving " << movePoints.size() << " points"  << endl << endl;
+    
+    polyTopoChange meshMod(mesh);
+    forAll(movePoints, i)
     {
-        bool cutPointI = pointCuts[i];
-        if(cutPointI)
-        {
-            cutPoints.append(i);
-        }
+        label movePointI = movePoints[i];
+        point newLocationI = newLocations[i];
+        
+        meshMod.modifyPoint(movePointI, newLocationI, -1, true);
     }
-    
-    
-    
-    cutPoints.shrink();
-    List<label> allCutPoints;
-    allCutPoints.transfer(cutPoints);
-    cutPoints.clear();
-    
-    
-    Info << "ready" << nl;
-    
-
-
-    
-//    polyTopoChange meshMod(mesh);
-//    
-//    point pc1(0,    0,    0.05);
-//    point pc2(0.1,  0,    0.05);
-//    point pc3(0.1,  0.1,  0.05);
-//    point pc4(0,    0.1,  0.05);
-//    
-//    
-//    label p1 = meshMod.addPoint(pc1, -1, -1, -1);
-//    label p2 = meshMod.addPoint(pc2, -1, -1, -1);
-//    label p3 = meshMod.addPoint(pc3, -1, -1, -1);
-//    label p4 = meshMod.addPoint(pc4, -1, -1, -1);
-//    
-//    
-//    
-////    label fc1[4] = {p1,p2,p3,p4};
-//    
-//    labelList fc1(4);
-//    
-//    fc1[0] = p1;
-//    fc1[1] = p2;
-//    fc1[2] = p3;
-//    fc1[3] = p4;
-//    
-//    face fcc1(fc1);
-//    
-//    label newCell = meshMod.addCell(-1,-1,-1,-1,-1);
-//    
-//    label f1 = meshMod.addFace(fcc1,0,newCell,-1,-1,-1,false,-1,-1,false);
-//    
-//    
-//    autoPtr<mapPolyMesh> morphMap = meshMod.changeMesh(mesh, false);
-
-
-    
-    
-//    meshMod.addPoint
-    
-    
-    
+    autoPtr<mapPolyMesh> morphMap = meshMod.changeMesh(mesh, false);
 
     if (!overwrite)
     {
         runTime++;
     }
-    
     if (overwrite)
     {
         mesh.setInstance(oldInstance);
     }
 
-    // Write resulting mesh
-//    Info<< "Writing refined morphMesh to time " << runTime.timeName() << endl;
+    Info<< "Writing morphMesh to time " << runTime.timeName() << endl << endl;
 
     mesh.write(); 
-    
     
     Info<< "End\n" << endl;
 

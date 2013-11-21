@@ -1,0 +1,16 @@
+solid ascii
+ facet normal -0.0623696 0.043489 -0.997105
+  outer loop
+   vertex -0.0948738 -0.10687 0.0443139
+   vertex -0.10932 0.192456 0.0582727
+   vertex 0.204193 -0.0915956 0.0262733
+  endloop
+ endfacet
+ facet normal -0.0623694 0.0434892 -0.997105
+  outer loop
+   vertex 0.189748 0.207731 0.0402321
+   vertex 0.204193 -0.0915956 0.0262733
+   vertex -0.10932 0.192456 0.0582727
+  endloop
+ endfacet
+endsolid

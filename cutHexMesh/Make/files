@@ -1,4 +1,6 @@
 cutHexMesh.C
+multiCellCuts.C
+meshCutter.C
 
 EXE = $(FOAM_USER_APPBIN)/cutHexMesh
 
