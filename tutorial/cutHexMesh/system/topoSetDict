@@ -415,7 +415,7 @@ actions
         source surfaceToCell;
         sourceInfo
         {
-            file            "sk50.stl";
+            file            "sphere.stl";
             useSurfaceOrientation true;  // use closed surface inside/outside
                                           // test (ignores includeCut,
                                           // outsidePoints)
