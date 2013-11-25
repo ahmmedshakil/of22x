@@ -53,6 +53,62 @@ using namespace Foam;
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
+label findNextIntersection
+(
+   const triSurface& surf,
+   const label startTri,
+   const labelHashSet& nextTris
+)
+{
+    label nextIntersection = -1;
+    labelHashSet visited(1000);
+    
+    labelList faceEdges = surf.faceEdges()[startTri];
+    label thisEdge =  faceEdges[1];
+    label lastEdge1 = faceEdges[0];
+    label lastEdge2 = faceEdges[2];
+    
+    label lastTri = startTri;
+    
+    for(int i = 0; i < 1000; i++)
+    {
+        label tryTri1 = triSurfaceTools::otherFace(surf, lastTri, lastEdge1);
+        label tryTri2 = triSurfaceTools::otherFace(surf, lastTri, lastEdge2);
+        
+        if(visited[tryTri1] && tryTri2 != -1)
+        {
+            thisEdge = lastEdge2;
+            lastTri = tryTri2;
+        }
+        else if (tryTri1 != -1)
+        {
+            thisEdge = lastEdge1;
+            lastTri = tryTri1;
+        }
+        
+        triSurfaceTools::otherEdges(
+            surf, 
+            lastTri, 
+            thisEdge, 
+            lastEdge1, 
+            lastEdge2
+        );
+        
+        if(nextTris[lastTri])
+        {
+            nextIntersection = lastTri;
+            break;
+        }
+        
+        visited.insert(lastTri);
+    }
+    
+    return nextIntersection;
+}
+    
+
+
+
 int main(int argc, char *argv[])
 {
     #include "addOverwriteOption.H"
@@ -86,7 +142,7 @@ int main(int argc, char *argv[])
     
     
 //    DynamicList<label> allCutPoints(mesh.nPoints());
-    List<DynamicList<label> > pointTris(mesh.nPoints());
+    List<labelHashSet> pointTris(mesh.nPoints());
 //    DynamicList<label> allCutEdges(mesh.nEdges()); 
     List<DynamicList<scalar> > edgeWeights(mesh.nEdges()); 
     List<DynamicList<label> > edgeTris(mesh.nEdges()); 
@@ -128,14 +184,14 @@ int main(int argc, char *argv[])
                 {
                     const label startPoint = e.start();
 //                    allCutPoints.append(startPoint);
-                    pointTris[startPoint].append(pHit.index());
+                    pointTris[startPoint].insert(pHit.index());
                     pointCuts[startPoint] = true;
                 }
                 else if (mag(pHit.hitPoint() - pEnd) < 0.01 * eMag)
                 {
                     const label endPoint = e.end();
 //                    allCutPoints.append(endPoint);
-                    pointTris[endPoint].append(pHit.index());
+                    pointTris[endPoint].insert(pHit.index());
                     pointCuts[endPoint] = true;
                     break;
                 }
@@ -201,7 +257,7 @@ int main(int argc, char *argv[])
         }   
     }
     
-    Info << cutFacePoints << nl;
+    Info << "cutFacePoints" << cutFacePoints << nl;
     
     labelListList cutFaceEdges(mesh.nFaces());   
     forAll(cutEdges, cutEdgeI)
@@ -218,16 +274,28 @@ int main(int argc, char *argv[])
         }   
     }
     
-    Info << cutPoints << nl;
-    Info << pointTris << nl;
-    Info << cutEdges << nl;
-    Info << edgeTris << nl;
-    Info << edgeWeights << nl;
+    Info << "cutFaceEdges" << cutFaceEdges << nl;
+    
+    Info << "cutPoints" << cutPoints << nl;
+    Info << "pointTris" << pointTris << nl;
+    Info << "cutEdges" << cutEdges << nl;
+    Info << "edgeTris" << edgeTris << nl;
+    Info << "edgeWeights" << edgeWeights << nl;
     
     
     
-    Info << nFaceCuts << nl;
+    Info << "nFaceCuts" << nFaceCuts << nl;
     
+    
+    labelList n(20, 0);
+    
+    forAll(nFaceCuts, faceI)
+    {
+        label nCuts = nFaceCuts[faceI];
+        n[nCuts]++;
+    }
+    
+    Info << "nCuts" << n << nl;
     
     DynamicList<label> allCutPoints(mesh.nPoints());
     DynamicList<label> allCutEdges(mesh.nEdges());
@@ -235,45 +303,127 @@ int main(int argc, char *argv[])
     
     List<bool> addedEdges(mesh.nEdges(), false);
     List<bool> addedPoints(mesh.nPoints(), false);
+    List<bool> removedEdges(mesh.nEdges(), false);
+    List<bool> removedPoints(mesh.nPoints(), false);
     
     forAll(nFaceCuts, cutFace)
     {
         label faceCuts = nFaceCuts[cutFace];
-        if(faceCuts > 0)
+        if(faceCuts == 2)
         {
             labelList cutEdges = cutFaceEdges[cutFace];
             forAll(cutEdges, cutEdgeI)
             {
                 label edge = cutEdges[cutEdgeI];
                 scalarList weights = edgeWeights[edge];
-//                if(weights.size() == 1 && !addedEdges[edge])
-//                {
+                if(weights.size() == 1 && !addedEdges[edge])
+                {
                     allCutEdges.append(edge);
                     scalar weight = weights[0];
                     cutEdgeWeights.append(weight);
                     addedEdges[edge] = true;
-//                }
+                }
             }
             labelList cutPoints = cutFacePoints[cutFace];
             forAll(cutPoints, cutPointI)
             {
                 label point = cutPoints[cutPointI];
-//                if(pointTris[point].size() == 1 && !addedPoints[point])
-//                {
+                if(pointTris[point].size() == 1 && !addedPoints[point])
+                {
                     allCutPoints.append(point);
                     addedPoints[point] = true;
-//                }
+                }
             }
         }
-//        else if(faceCuts > 2)
-//        {
-////            labelList
-//        }
+        else if(faceCuts > 2)
+        {
+            labelList cutEdges = cutFaceEdges[cutFace];
+            labelList cutPoints = cutFacePoints[cutFace];
+            label startEdge = -1;
+            label startPoint = -1;
+            
+            if(cutEdges.size() > 0)
+            {
+                forAll(cutEdges, edgeI)
+                {
+                    label edge = cutEdges[edgeI];
+                    if(!removedEdges[edge])
+                    {
+                        startEdge = edge;
+                        break;
+                    }
+                }
+            }
+            else if(cutPoints.size() > 0)
+            {
+                forAll(cutPoints, pointI)
+                {
+                    label point = cutPoints[pointI];
+                    if(!removedPoints[point])
+                    {
+                        startPoint = point;
+                        break;
+                    }
+                }
+            }
+                
+            if(startEdge != -1)
+            {
+                labelHashSet nextTris;
+                
+                forAll(cutEdges, edgeI)
+                {
+                    label edge = cutEdges[edgeI];
+                    if(!removedEdges[edgeI] && edge != startEdge)
+                    {
+                        nextTris.insert(edgeTris[edge]);
+                    }
+                }
+                forAll(cutPoints, pointI)
+                {
+                    label point = cutPoints[pointI];
+                    if(!removedPoints[pointI] && point != startPoint)
+                    {
+                        nextTris.insert(pointTris[point].toc());
+                    }
+                }
+                
+                label nextTri = findNextIntersection(
+                    surf,
+                    startEdge,
+                    nextTris
+                );
+                
+                forAll(cutEdges, edgeI)
+                {
+                    label edge = cutEdges[edgeI];
+                    labelList tris = edgeTris[edge];
+                    scalarList weights = edgeWeights[edge];
+                    forAll(tris, triI)
+                    {
+                        label tri = tris[triI];
+                        
+                        if(tri == nextTri)
+                        {
+                            if(!addedEdges[edge])
+                            {
+                                allCutEdges.append(edge);
+                                scalar weight = weights[triI];
+                                cutEdgeWeights.append(weight);
+                                Info << "start: " << startEdge << nl 
+                                     << "next: " << edge << nl << nl;
+                                addedEdges[edge] = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
     
-    Info << allCutEdges << nl;
-    Info << cutEdgeWeights << nl;
-    Info << allCutPoints << nl;
+    Info  << "allCutEdges" << allCutEdges << nl;
+    Info  << "cutEdgeWeights" << cutEdgeWeights << nl;
+    Info  << "allCutPoints" << allCutPoints << nl;
 
     scalarField allCutEdgeWeights;
     allCutEdgeWeights.transfer(cutEdgeWeights);
