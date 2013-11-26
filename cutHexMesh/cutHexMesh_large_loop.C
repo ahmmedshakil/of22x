@@ -53,224 +53,6 @@ using namespace Foam;
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-
-//class geomCut
-//{
-//    private:
-//        label index_;
-//        label tri_ ;
-//        bool isEdge_;
-//        scalar weight_;
-//        
-//    public:
-//        // Constructor for point
-////        geomCut(
-////            const label index, 
-////            const label tri
-////        );        
-//        
-//        geomCut(const label index, const label tri)
-//        :
-//            index_(index),
-//            tri_(tri)
-//        {}
-//        
-////        // Constructor for edge
-////        geomCut(
-////            const label index, 
-////            const label tri,
-////            const label weight
-////        );
-//        
-//        
-////        ~geomCut();
-//};
-
-
-//class geomCut : public pointIndexHit
-//{
-//    private:
-//        label elem_;
-//        bool isEdge_;
-
-//    public:
-//        geomCut() 
-//        : 
-//            pointIndexHit(),
-//            elem_(-1),
-//            isEdge_(true)
-//        {}
-//    
-//        geomCut(
-//            const pointIndexHit& p,
-//            const label elem,
-//            const bool isEdge
-//        ) 
-//        : 
-//            pointIndexHit(p),
-//            elem_(elem),
-//            isEdge_(isEdge)
-//        {}
-//        
-//        geomCut(
-//            const pointIndexHit& p,
-//            const label elem
-//        ) 
-//        : 
-//            pointIndexHit(p),
-//            elem_(elem),
-//            isEdge_(true)
-//            
-//        {}
-//        
-//        label elem() const
-//        {
-//            return elem_;
-//        }
-//        
-//        label isEdge() const
-//        {
-//            return isEdge_;
-//        }
-//        
-//        friend Ostream& operator<< (Ostream& os, const geomCut& pHit)
-//        {
-//            if (os.format() == IOstream::ASCII)
-//            {
-//                if(pHit.isEdge_)
-//                {
-//                    os << "e" << token::SPACE;
-//                }
-//                else
-//                {
-//                    os << "p" << token::SPACE;
-//                }
-//                
-//                os << pHit.elem_
-//                    << pHit.hit() << token::SPACE << pHit.hitPoint()
-//                    << token::SPACE << pHit.index();
-//                
-//            }
-//            else
-//            {
-//                os.write
-//                (
-//                    reinterpret_cast<const char*>(&pHit),
-//                    sizeof(PointIndexHit)
-//                );
-//            }
-
-//             Check state of Ostream
-//            os.check("Ostream& operator<<(Ostream&, const PointIndexHit&)");
-
-//            return os;
-//        }
-//        
-//};
-
-
-class geomCut
-{
-    private:
-        label index_;
-        label tri_;
-        scalar weight_;
-        bool isEdge_;
-
-    public:
-        geomCut() 
-        : 
-            index_(-1),
-            tri_(-1),
-            weight_(-1),
-            isEdge_(true)
-        {}
-    
-        geomCut(
-            const label index,
-            const label tri,
-            const scalar weight
-        ) 
-        :
-            index_(index),
-            tri_(tri),
-            weight_(weight),
-            isEdge_(true)
-        {}
-        
-        geomCut(
-            const label index,
-            const label tri
-        ) 
-        :
-            index_(index),
-            tri_(tri),
-            weight_(-1),
-            isEdge_(false)
-            
-        {}
-        
-        label index() const
-        {
-            return index_;
-        }
-        
-        label tri() const
-        {
-            return tri_;
-        }
-        
-        label weight() const
-        {
-            return weight_;
-        }
-        
-        label isEdge() const
-        {
-            return isEdge_;
-        }
-        
-        
-        bool operator==(const geomCut& rhs) const
-        {
-            return
-                index_ == rhs.index()
-             && tri_ == rhs.tri()
-             && weight_ == rhs.weight();
-        }
-
-        bool operator!=(const geomCut& rhs) const
-        {
-            return !operator==(rhs);
-        }
-        
-        friend Ostream& operator<< (Ostream& os, const geomCut& cut)
-        {
-            if (os.format() == IOstream::ASCII)
-            {
-                os << cut.index_ << token::SPACE 
-                    << cut.tri_ << token::SPACE << cut.weight_;
-            }
-            else
-            {
-                os.write
-                (
-                    reinterpret_cast<const char*>(&cut),
-                    sizeof(geomCut)
-                );
-            }
-
-            // Check state of Ostream
-            os.check("Ostream& operator<<(Ostream&, const PointIndexHit&)");
-
-            return os;
-        }
-        
-};
-
-
-
-
 label findNextIntersection
 (
    const triSurface& surf,
@@ -368,14 +150,13 @@ int main(int argc, char *argv[])
     List<bool> edgeCuts(mesh.nEdges(), false);
     scalar weight;
     
-    DynamicList<geomCut> cuts(mesh.nPoints());
-    
     Info << "find hits" << nl;
     
         
 //    OFstream pointStream("cutPoints.obj");
 //    meshTools::writeOBJ(pointStream, points[i]);
 
+            
 
     forAll(edgeLabels, i)
     {
@@ -396,17 +177,15 @@ int main(int argc, char *argv[])
         {
             pointIndexHit pHit = tree.findLine(p0, p1);
             
-            
             if(pHit.hit())
             {
+                
                 if (mag(pHit.hitPoint() - pStart) < 0.01 * eMag)
                 {
                     const label startPoint = e.start();
 //                    allCutPoints.append(startPoint);
                     pointTris[startPoint].insert(pHit.index());
                     pointCuts[startPoint] = true;
-                    geomCut newCut(startPoint, pHit.index());
-                    cuts.append(newCut);
                 }
                 else if (mag(pHit.hitPoint() - pEnd) < 0.01 * eMag)
                 {
@@ -414,8 +193,6 @@ int main(int argc, char *argv[])
 //                    allCutPoints.append(endPoint);
                     pointTris[endPoint].insert(pHit.index());
                     pointCuts[endPoint] = true;
-                    geomCut newCut(endPoint, pHit.index());
-                    cuts.append(newCut);
                     break;
                 }
                 else
@@ -427,8 +204,6 @@ int main(int argc, char *argv[])
 //                    allCutEdges.append(edgeI);
                     edgeWeights[edgeI].append(weight);
                     edgeTris[edgeI].append(pHit.index());
-                    geomCut newCut(edgeI, pHit.index(), weight);
-                    cuts.append(newCut);
                     edgeCuts[edgeI] = true;
                 }
                 p0 = pHit.hitPoint() + tolVec;
@@ -440,16 +215,6 @@ int main(int argc, char *argv[])
             }
         }
     }
-    
-    
-//    forAll(cuts, i)
-//    {
-//        inter inte = cuts[i];
-//        Info << "inter " << inte << " " << inte.cut() << nl;
-//        
-//    }
-    
-    Info << "inter " << cuts << nl;
     
     DynamicList<label> cutPoints(mesh.nPoints()); 
     forAll(pointCuts, pointCutI)
@@ -659,32 +424,7 @@ int main(int argc, char *argv[])
     Info  << "allCutEdges" << allCutEdges << nl;
     Info  << "cutEdgeWeights" << cutEdgeWeights << nl;
     Info  << "allCutPoints" << allCutPoints << nl;
-    
-    
-    List<bool> addEdges(mesh.nEdges(), false);
-    List<bool> addPoints(mesh.nPoints(), false);
-    List<bool> rmEdges(mesh.nEdges(), false);
-    List<bool> rmPoints(mesh.nPoints(), false);
-    
-//    forAll(cuts, cutI)
-//    {
-//        geomCut cut = cuts[cutI];
-//        
-//        if(cut.isEdge())
-//        {
-//            label edge = cut.elem();
-//            labelList faces = mesh.edgeFaces(edge);
-//            forAll(faces, faceI)
-//            {
-//                label face = faces[faceI];
-//                
-//            }
-//        }
-//        
-//        
-//    }
-    
-    
+
     scalarField allCutEdgeWeights;
     allCutEdgeWeights.transfer(cutEdgeWeights);
     cutEdgeWeights.clear();
@@ -699,7 +439,7 @@ int main(int argc, char *argv[])
 //    Finde die nachbarn und entferne Punkt wenn er 2 nachbarn hat
     
     
-    cellCuts cut
+    cellCuts cuts
     (
         mesh,
         allCutPoints,
@@ -713,7 +453,7 @@ int main(int argc, char *argv[])
     meshCutter cutter(mesh);
 
     // Insert mesh refinement into polyTopoChange.
-    cutter.setRefinement(cut, meshMod);
+    cutter.setRefinement(cuts, meshMod);
 
     // Do all changes
     Info<< "Morphing ..." << endl;
