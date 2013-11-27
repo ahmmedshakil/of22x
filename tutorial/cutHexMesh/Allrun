@@ -13,7 +13,7 @@ then
 
     blockMesh > /dev/null
     moveMeshPoints $1 $2 -overwrite
-    cutHexMesh $1
+    cutHexMesh $1 -overwrite
 fi
     
     

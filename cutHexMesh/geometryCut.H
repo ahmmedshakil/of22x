@@ -118,11 +118,20 @@ public:
                     return true;
             }
             
+            bool isPoint() const
+            {
+                if(weight_ == -1)
+                    return true;
+                else
+                    return false;
+            }
+            
         // Methods
             
-            GeometryCut findNext(
-                const triSurface& surf,
-                const List<GeometryCut>& otherCuts
+            label findNext(
+                const triSurface surf,
+                const List<GeometryCut> cuts,
+                const labelList& otherCuts
             );
             
         // Compare

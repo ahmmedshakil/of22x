@@ -91,13 +91,14 @@ GeometryCut::~GeometryCut()
 // * * * * * * * * * * * * * * * Member Functions * * * * * * * * * * * * * //
         
 
-GeometryCut GeometryCut::findNext(
-    const triSurface& surf,
-    const List<GeometryCut>& otherCuts
+label GeometryCut::findNext(
+    const triSurface surf,
+    const List<GeometryCut> cuts,
+    const labelList& otherCuts
 )
 {
     label nRuns = 1000;
-    GeometryCut nextCut;
+    label nextCut = -1;
     labelHashSet visited(nRuns);
     label startTriangle = triangle_;
     
@@ -140,12 +141,13 @@ GeometryCut GeometryCut::findNext(
 //            break;
 //        }
         
-        forAll(otherCuts, cutI)
+        forAll(otherCuts, otherCutI)
         {
-            GeometryCut cut = otherCuts[cutI];
+            label cutI = otherCuts[otherCutI];
+            GeometryCut cut = cuts[cutI];
             if(cut.triangle() == lastTriangle)
             {
-                nextCut = cut;
+                nextCut = cutI;
                 i = nRuns;
             }
         }

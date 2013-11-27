@@ -415,7 +415,7 @@ actions
         source surfaceToCell;
         sourceInfo
         {
-            file            "constant/triSurface/sphere.stl";
+            file            "constant/triSurface/bullet.obj";
             useSurfaceOrientation true;  // use closed surface inside/outside
                                           // test (ignores includeCut,
                                           // outsidePoints)

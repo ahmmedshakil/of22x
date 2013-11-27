@@ -62,64 +62,6 @@ namespace Foam
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 
-
-
-label findNextIntersection
-(
-   const triSurface& surf,
-   const label startTri,
-   const labelHashSet& nextTris
-)
-{
-    label nextIntersection = -1;
-    labelHashSet visited(1000);
-    
-    labelList faceEdges = surf.faceEdges()[startTri];
-    label thisEdge =  faceEdges[1];
-    label lastEdge1 = faceEdges[0];
-    label lastEdge2 = faceEdges[2];
-    
-    label lastTri = startTri;
-    
-    for(int i = 0; i < 1000; i++)
-    {
-        label tryTri1 = triSurfaceTools::otherFace(surf, lastTri, lastEdge1);
-        label tryTri2 = triSurfaceTools::otherFace(surf, lastTri, lastEdge2);
-        
-        if(visited[tryTri1] && tryTri2 != -1)
-        {
-            thisEdge = lastEdge2;
-            lastTri = tryTri2;
-        }
-        else if (tryTri1 != -1)
-        {
-            thisEdge = lastEdge1;
-            lastTri = tryTri1;
-        }
-        
-        triSurfaceTools::otherEdges(
-            surf, 
-            lastTri, 
-            thisEdge, 
-            lastEdge1, 
-            lastEdge2
-        );
-        
-        if(nextTris[lastTri])
-        {
-            nextIntersection = lastTri;
-            break;
-        }
-        
-        visited.insert(lastTri);
-    }
-    
-    return nextIntersection;
-}
-    
-
-
-
 int main(int argc, char *argv[])
 {
     #include "addOverwriteOption.H"
@@ -210,16 +152,26 @@ int main(int argc, char *argv[])
             }
         }
     }
-    
-    Info << "inter " << cuts << nl;
 
     Info << "ready" << nl;
     
     cuts.shrink();
     
+//    Info << cuts << nl;
+
+    
+    List<bool> addEdges(mesh.nEdges(), false);
+    List<bool> addPoints(mesh.nPoints(), false);
+    List<bool> rmEdges(mesh.nEdges(), false);
+    List<bool> rmPoints(mesh.nPoints(), false);
+    
+    List<bool> removedCuts(cuts.size(), false);
+    
+    List<bool> addedCuts(cuts.size(), false);
+    List<bool> visitedFaces(mesh.nFaces(), false);
     
     
-//  find faceCuts
+    //  find faceCuts
 
     labelListList facesCuts(mesh.nFaces());
     forAll(cuts, cutI)
@@ -243,108 +195,355 @@ int main(int argc, char *argv[])
             facesCuts[face].append(cutI);
         }
     }
-    Info << "facesCuts" << facesCuts << nl;
+//    Info << "facesCuts" << facesCuts << nl;
+    
+    
+    
+    
+    DynamicList<label> checkCuts;
+    
+    forAll(cuts, cutI)
+    {
+        if(cuts[cutI].isEdge())
+        {
+            checkCuts.append(cutI);
+            break;
+        }
+    }
+    
+    
+    
+    DynamicList<label> newCheckCuts = checkCuts;
+    
+    while(newCheckCuts.size() > 0)
+    {
+        checkCuts.clear();
+        checkCuts.transfer(newCheckCuts);
+//        checkCuts = newCheckCuts;
+        newCheckCuts.clear();
+        
+        
+//        Info << nl << "checkCuts " << checkCuts << nl;
+        
+        forAll(checkCuts, checkCutI)
+        {
+            label cutI = checkCuts[checkCutI];
+            
+//            if(!addedCuts[cutI] && !removedCuts[cutI])
+//            {
+                addedCuts[cutI] = true;
+                GeometryCut cut = cuts[cutI];
+                labelList cutFaces;
+    //            Info << cut << nl;
+                if(cut.isEdge())
+                {
+                    label cutEdge = cut.geometry();
+                    cutFaces.append(mesh.edgeFaces()[cutEdge]);
+                }
+                else
+                {
+                    label cutPoint = cut.geometry();
+                    cutFaces.append(mesh.pointFaces()[cutPoint]);
+                }
+                
+//                Info << "cutFaces " << cutFaces << nl;
+                
+                forAll(cutFaces, faceI)
+                {
+                    label cutFace = cutFaces[faceI];
+                    if(!visitedFaces[cutFace])
+                    {
+                        labelList faceCuts = facesCuts[cutFace];
+                        label nCuts = faceCuts.size();
+                        
+//                        Info << nl << "nCuts " << faceI << ": " << nCuts << nl;
+                        
+                        if(nCuts > 1)
+                        {
+                            label startCutI = cutI;
+                            label nextCutI = -1;
+                            DynamicList<label> otherCutsI(faceCuts.size());
+                            
+                            forAll(faceCuts, i)
+                            {
+                                label faceCutI = faceCuts[i];
+                                GeometryCut faceCut = cuts[faceCutI];
+//                                Info << "cut " << i << ": (" << faceCutI << ") " << faceCut << nl;
+                                
+                                if(!removedCuts[faceCutI] && faceCutI != startCutI)
+                                {
+                                    otherCutsI.append(faceCutI);
+                                }
+                            }
+    //                        
+    //                        if(startCutI != -1)
+    //                        {
+//                            Info << "startCut " << cuts[startCutI] << nl;
+            //                    Info << "nOther " << otherCutsI.size() << nl;
+                            forAll(otherCutsI, otherCutI)
+                            {
+                                label cutI = otherCutsI[otherCutI];
+//                                Info << "nextCuts " << cuts[cutI] << nl;
+                            }
+            //                    Info << "otherCutsI " << otherCutsI << nl;
+                            nextCutI = cuts[startCutI].findNext(surf, cuts, otherCutsI);
+    //                        }
+                            
+                            
+                            if(nextCutI != -1)
+                            {
+//                                Info << "nextCut  " << cuts[nextCutI] << nl;
+                                addedCuts[nextCutI] = true;
+                                newCheckCuts.append(nextCutI);
+                                
+                                forAll(otherCutsI, i)
+                                {
+                                    label otherCutI = otherCutsI[i];
+                                    if(otherCutI != startCutI && otherCutI != nextCutI)
+                                    {
+                                        removedCuts[cutI] = true;
+                                    }
+                                }
+                            }
+                        }  
+                    }
+                    
+                    visitedFaces[cutFace] = true;
+                }
+//            }
+        }
+    }
+
+//    Info << "visitedFaces" <<  visitedFaces << nl;
+    
+//    Info << "addedCuts" << addedCuts << nl;
+    
+//  Remove redundand points
+    
+//    labelListList pointsCuts(mesh.nPoints());
+//    forAll(cuts, cutI)
+//    {
+//        GeometryCut cut = cuts[cutI];
+//        if(cut.isPoint())
+//        {
+//            pointsCuts[cut.geometry()].append(cutI);
+//        }
+//    }
+//    Info << pointsCuts << nl;
+//    
+//    
+//    List<bool> keepCuts(cuts.size(), true);
+//    forAll(pointsCuts, pointI)
+//    {
+//        labelList pointCuts = pointsCuts[pointI];
+//        labelList newPointCuts;
+//        if(pointCuts.size() > 1)
+//        {
+//            forAll(pointCuts, cutI)
+//            {
+//                label cut = pointCuts[cutI];
+//                Info << cut << nl;
+//                bool addCut = true;
+//                Info << newPointCuts << nl;
+//                forAll(newPointCuts, newCutI)
+//                {
+//                    label newCut = pointCuts[newPointCuts[newCutI]];
+//                    Info << cuts[cut] << cuts[newCut] << nl;
+//                    
+//                    if(cuts[cut] == cuts[newCut])
+//                    {
+//                        addCut = false;
+//                        break;
+//                    }
+//                    else
+//                    {
+//                        GeometryCut thisCut = cuts[cut];
+//                    }
+//                }
+//                if(addCut)
+//                {
+//                    newPointCuts.append(cutI);
+//                }
+//                else
+//                {
+//                    keepCuts[cut] = false;
+//                }
+//                
+//            }
+//        }
+//    }
+
+//    Info << keepCuts << nl;
+//    
+//    forAll(keepCuts, cutI)
+//    {
+//        label cut = keepCuts[cutI];
+//    }
+    
+    
+//  find faceCuts
+
+//    labelListList facesCuts(mesh.nFaces());
+//    forAll(cuts, cutI)
+//    {
+//        GeometryCut cut = cuts[cutI];
+//        labelList faces;
+//        
+//        if(cut.isEdge())
+//        {
+//            label edge = cut.geometry();
+//            faces = mesh.edgeFaces()[edge];
+//        }
+//        else
+//        {
+//            label point = cut.geometry();
+//            faces = mesh.pointFaces()[point];
+//        }
+//        forAll(faces, faceI)
+//        {
+//            label face = faces[faceI];
+//            facesCuts[face].append(cutI);
+//        }
+//    }
+//    Info << "facesCuts" << facesCuts << nl;
     
     
 //    List<bool> addEdges(mesh.nEdges(), false);
 //    List<bool> addPoints(mesh.nPoints(), false);
 //    List<bool> rmEdges(mesh.nEdges(), false);
 //    List<bool> rmPoints(mesh.nPoints(), false);
+//    List<bool> addedCuts(cuts.size(), false);
+//    List<bool> removedCuts(cuts.size(), false);
 
     DynamicList<label> allCutPoints(mesh.nPoints());
     DynamicList<label> allCutEdges(mesh.nEdges());
     DynamicList<scalar> cutEdgeWeights(mesh.nEdges());
-    
+//    
 
-    DynamicList<label> cutFaces(mesh.nFaces());
-    forAll(facesCuts, faceI)
-    {
-        labelList faceCuts = facesCuts[faceI];
-        label nCuts = faceCuts.size();
-        
-        Info << "nCuts " << faceI << ": " << nCuts << nl;
-        
-        if(nCuts > 1)
-        {
-            if(nCuts == 2)
-            {
-                forAll(faceCuts, cutI)
-                {
-                    GeometryCut cut = cuts[faceCuts[cutI]];
-                    if(cut.isEdge())
-                    {
-                        allCutEdges.append(cut.geometry());
-                        cutEdgeWeights.append(cut.weight());
-                    }
+//    DynamicList<label> cutFaces(mesh.nFaces());
+//    forAll(facesCuts, faceI)
+//    {
+//        labelList faceCuts = facesCuts[faceI];
+//        label nCuts = faceCuts.size();
+//        
+//        Info << nl << "nCuts " << faceI << ": " << nCuts << nl;
+//        
+//        if(nCuts > 1)
+//        {
+//            label startCutI = -1;
+//            label nextCutI = -1;
+//            DynamicList<label> otherCutsI(faceCuts.size());
+//            
+//            forAll(faceCuts, faceCutI)
+//            {
+//                label cutI = faceCuts[faceCutI];
+//                GeometryCut cut = cuts[cutI];
+//                Info << "cut " << faceCutI << ": (" << cutI << ") " << cut << nl;
+//                
+//                if(!removedCuts[cutI])
+//                {
+//                    if(cut.isEdge() && startCutI == -1)
+//                    {
+//                        addedCuts[cutI] = true;
+//                        startCutI = cutI;
+//                    }
 //                    else
 //                    {
-//                        allCutPoints.append(cut.geometry());
+////                            Info << "append this" << nl;
+//                        otherCutsI.append(cutI);
 //                    }
-                }
+//                }
+//            }
+//            
+//            if(startCutI != -1)
+//            {
+//                Info << "startCut " << cuts[startCutI] << nl;
+////                    Info << "nOther " << otherCutsI.size() << nl;
+//                forAll(otherCutsI, otherCutI)
+//                {
+//                    label cutI = otherCutsI[otherCutI];
+//                    Info << cuts[cutI] << nl;
+//                }
+////                    Info << "otherCutsI " << otherCutsI << nl;
+//                nextCutI = cuts[startCutI].findNext(surf, cuts, otherCutsI);
+//            }
+//            
+//            
+//            if(nextCutI != -1)
+//            {
+//                Info << "nextCut " << cuts[nextCutI] << nl;
+//                addedCuts[nextCutI] = true;
+//                
+//                forAll(otherCutsI, otherCutI)
+//                {
+//                    label cutI = otherCutsI[otherCutI];
+//                    if(cutI != startCutI && cutI != nextCutI)
+//                    {
+//                        removedCuts[cutI] = true;
+//                    }
+//                }
+//            }
+//        }   
+//    }
+    
+//    Info << "addedCuts   " << addedCuts << nl;
+//    Info << "removedCuts " << removedCuts << nl;
+    
+    
+    forAll(addedCuts, cutI)
+    {
+        bool addCut = addedCuts[cutI];
+        if(addCut)
+        {
+            GeometryCut cut = cuts[cutI];
+            if(cut.isEdge())
+            {
+                allCutEdges.append(cut.geometry());
+                cutEdgeWeights.append(cut.weight());
             }
             else
             {
-                GeometryCut startCut;
-                GeometryCut nextCut;
-                List<GeometryCut> otherCuts;
-                
-                
-                forAll(faceCuts, cutI)
-                {
-                    GeometryCut cut = cuts[faceCuts[cutI]];
-                    Info << nl << "cut " << cutI << " " << cut << nl;
-                    
-                    if(cut.isEdge() && startCut.geometry() == -1)
-                    {
-                        allCutEdges.append(cut.geometry());
-                        cutEdgeWeights.append(cut.weight());
-                        startCut = cut;
-                    }
-                    else
-                    {
-                        otherCuts.append(cut);
-                    }
-                }
-                
-                Info << "startCut " << startCut << nl;
-                
-                if(startCut.geometry() != -1)
-                {
-                    nextCut = startCut.findNext(surf, otherCuts);
-                }
-                
-                Info << "nextCut " << nextCut << nl;
-                
-                if(nextCut.geometry() != -1)
-                {
-                    if(nextCut.isEdge())
-                    {
-                        allCutEdges.append(nextCut.geometry());
-                        cutEdgeWeights.append(nextCut.weight());
-                    }
-                    else
-                    {
-                        allCutPoints.append(nextCut.geometry());
-                    }
-                }
+                allCutPoints.append(cut.geometry());
             }
-        }   
+        }
     }
+    
     
     
     
     
     allCutPoints.shrink();
     allCutEdges.shrink();
-    
+//    
     scalarField allCutEdgeWeights;
     allCutEdgeWeights.transfer(cutEdgeWeights);
     cutEdgeWeights.clear();
     
-    Info << "allCutPoints" << allCutPoints << nl;
-    Info << "allCutEdges" << allCutEdges << nl;
-    Info << "allCutEdgeWeights" << allCutEdgeWeights << nl;
+//    Info << "allCutPoints" << allCutPoints << nl;
+//    Info << "allCutEdges" << allCutEdges << nl;
+//    Info << "allCutEdgeWeights" << allCutEdgeWeights << nl;
     
+    
+    OFstream pointStream("cutPoints.obj");
+    
+    forAll(allCutPoints, pointI)
+    {
+        label point = allCutPoints[pointI];
+//        Info << points[point] << nl;
+        meshTools::writeOBJ(pointStream, points[point]);
+    }
+    
+    forAll(allCutEdges, edgeI)
+    {
+        scalar weight = allCutEdgeWeights[edgeI];
+        label edgeL = allCutEdges[edgeI];
+        const edge e = edges[edgeL];
+        const point pStart = points[e.start()];
+        const point pEnd = points[e.end()];
+        const point cutPoint = pStart + (pEnd - pStart) * weight;
+        
+        meshTools::writeOBJ(pointStream, cutPoint);
+    }
     
 //    forAll(cuts, cutI)
 //    {
@@ -373,7 +572,7 @@ int main(int argc, char *argv[])
         allCutEdges,
         allCutEdgeWeights
     );
-    
+//    
     polyTopoChange meshMod(mesh);
 
     // Cutting engine
