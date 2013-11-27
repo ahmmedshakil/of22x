@@ -6,14 +6,13 @@ cd ${0%/*} || exit 1    # run from this directory
 
 cd ../../cutHexMesh
 
-wclean
 
 if(wmake)
 then
     cd -
 
     blockMesh > /dev/null
-    moveMeshPoints $1 0.1 -overwrite
+    moveMeshPoints $1 $2 -overwrite
     cutHexMesh $1
 fi
     

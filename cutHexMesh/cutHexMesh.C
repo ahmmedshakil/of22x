@@ -47,226 +47,19 @@ Description
 #include "triangle.H"
 #include "polyTopoChange.H"
 #include "OFstream.H"
+#include "geometryCut.H"
+#include "unitConversion.H"
 
 
 using namespace Foam;
 
-// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-
-//class geomCut
-//{
-//    private:
-//        label index_;
-//        label tri_ ;
-//        bool isEdge_;
-//        scalar weight_;
-//        
-//    public:
-//        // Constructor for point
-////        geomCut(
-////            const label index, 
-////            const label tri
-////        );        
-//        
-//        geomCut(const label index, const label tri)
-//        :
-//            index_(index),
-//            tri_(tri)
-//        {}
-//        
-////        // Constructor for edge
-////        geomCut(
-////            const label index, 
-////            const label tri,
-////            const label weight
-////        );
-//        
-//        
-////        ~geomCut();
-//};
-
-
-//class geomCut : public pointIndexHit
-//{
-//    private:
-//        label elem_;
-//        bool isEdge_;
-
-//    public:
-//        geomCut() 
-//        : 
-//            pointIndexHit(),
-//            elem_(-1),
-//            isEdge_(true)
-//        {}
-//    
-//        geomCut(
-//            const pointIndexHit& p,
-//            const label elem,
-//            const bool isEdge
-//        ) 
-//        : 
-//            pointIndexHit(p),
-//            elem_(elem),
-//            isEdge_(isEdge)
-//        {}
-//        
-//        geomCut(
-//            const pointIndexHit& p,
-//            const label elem
-//        ) 
-//        : 
-//            pointIndexHit(p),
-//            elem_(elem),
-//            isEdge_(true)
-//            
-//        {}
-//        
-//        label elem() const
-//        {
-//            return elem_;
-//        }
-//        
-//        label isEdge() const
-//        {
-//            return isEdge_;
-//        }
-//        
-//        friend Ostream& operator<< (Ostream& os, const geomCut& pHit)
-//        {
-//            if (os.format() == IOstream::ASCII)
-//            {
-//                if(pHit.isEdge_)
-//                {
-//                    os << "e" << token::SPACE;
-//                }
-//                else
-//                {
-//                    os << "p" << token::SPACE;
-//                }
-//                
-//                os << pHit.elem_
-//                    << pHit.hit() << token::SPACE << pHit.hitPoint()
-//                    << token::SPACE << pHit.index();
-//                
-//            }
-//            else
-//            {
-//                os.write
-//                (
-//                    reinterpret_cast<const char*>(&pHit),
-//                    sizeof(PointIndexHit)
-//                );
-//            }
-
-//             Check state of Ostream
-//            os.check("Ostream& operator<<(Ostream&, const PointIndexHit&)");
-
-//            return os;
-//        }
-//        
-//};
-
-
-class geomCut
+namespace Foam
 {
-    private:
-        label index_;
-        label tri_;
-        scalar weight_;
-        bool isEdge_;
+    scalar alignedCos_ = cos(degToRad(89.0));
+}
 
-    public:
-        geomCut() 
-        : 
-            index_(-1),
-            tri_(-1),
-            weight_(-1),
-            isEdge_(true)
-        {}
-    
-        geomCut(
-            const label index,
-            const label tri,
-            const scalar weight
-        ) 
-        :
-            index_(index),
-            tri_(tri),
-            weight_(weight),
-            isEdge_(true)
-        {}
-        
-        geomCut(
-            const label index,
-            const label tri
-        ) 
-        :
-            index_(index),
-            tri_(tri),
-            weight_(-1),
-            isEdge_(false)
-            
-        {}
-        
-        label index() const
-        {
-            return index_;
-        }
-        
-        label tri() const
-        {
-            return tri_;
-        }
-        
-        label weight() const
-        {
-            return weight_;
-        }
-        
-        label isEdge() const
-        {
-            return isEdge_;
-        }
-        
-        
-        bool operator==(const geomCut& rhs) const
-        {
-            return
-                index_ == rhs.index()
-             && tri_ == rhs.tri()
-             && weight_ == rhs.weight();
-        }
-
-        bool operator!=(const geomCut& rhs) const
-        {
-            return !operator==(rhs);
-        }
-        
-        friend Ostream& operator<< (Ostream& os, const geomCut& cut)
-        {
-            if (os.format() == IOstream::ASCII)
-            {
-                os << cut.index_ << token::SPACE 
-                    << cut.tri_ << token::SPACE << cut.weight_;
-            }
-            else
-            {
-                os.write
-                (
-                    reinterpret_cast<const char*>(&cut),
-                    sizeof(geomCut)
-                );
-            }
-
-            // Check state of Ostream
-            os.check("Ostream& operator<<(Ostream&, const PointIndexHit&)");
-
-            return os;
-        }
-        
-};
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 
 
@@ -343,6 +136,7 @@ int main(int argc, char *argv[])
     const bool overwrite = args.optionFound("overwrite");
     const fileName surfName = args[1];
     triSurface surf(runTime.constantPath()/"triSurface"/surfName);  
+    const vectorField& normals = surf.faceNormals();
     
 
     pointField points = mesh.points();
@@ -357,26 +151,10 @@ int main(int argc, char *argv[])
     triSurfaceSearch querySurf(surf);
     const indexedOctree<treeDataTriSurface>& tree = querySurf.tree();
     
-    
-    
-//    DynamicList<label> allCutPoints(mesh.nPoints());
-    List<labelHashSet> pointTris(mesh.nPoints());
-//    DynamicList<label> allCutEdges(mesh.nEdges()); 
-    List<DynamicList<scalar> > edgeWeights(mesh.nEdges()); 
-    List<DynamicList<label> > edgeTris(mesh.nEdges()); 
-    List<bool> pointCuts(mesh.nPoints(), false); 
-    List<bool> edgeCuts(mesh.nEdges(), false);
-    scalar weight;
-    
-    DynamicList<geomCut> cuts(mesh.nPoints());
+    DynamicList<GeometryCut> cuts(mesh.nPoints()*4);
     
     Info << "find hits" << nl;
     
-        
-//    OFstream pointStream("cutPoints.obj");
-//    meshTools::writeOBJ(pointStream, points[i]);
-
-
     forAll(edgeLabels, i)
     {
         label edgeI = edgeLabels[i];
@@ -396,40 +174,32 @@ int main(int argc, char *argv[])
         {
             pointIndexHit pHit = tree.findLine(p0, p1);
             
-            
             if(pHit.hit())
             {
                 if (mag(pHit.hitPoint() - pStart) < 0.01 * eMag)
                 {
                     const label startPoint = e.start();
-//                    allCutPoints.append(startPoint);
-                    pointTris[startPoint].insert(pHit.index());
-                    pointCuts[startPoint] = true;
-                    geomCut newCut(startPoint, pHit.index());
+                    const GeometryCut newCut(startPoint, pHit.index());
                     cuts.append(newCut);
                 }
                 else if (mag(pHit.hitPoint() - pEnd) < 0.01 * eMag)
                 {
                     const label endPoint = e.end();
-//                    allCutPoints.append(endPoint);
-                    pointTris[endPoint].insert(pHit.index());
-                    pointCuts[endPoint] = true;
-                    geomCut newCut(endPoint, pHit.index());
+                    GeometryCut newCut(endPoint, pHit.index());
                     cuts.append(newCut);
+                    break;
+                }
+                else if (mag(n & normals[pHit.index()]) < alignedCos_)
+                {
                     break;
                 }
                 else
                 {
                     const vector eVec(pEnd - pStart);
                     const vector pVec(pHit.hitPoint() - pStart);
-                    
-                    weight = mag(pVec)/mag(eVec);
-//                    allCutEdges.append(edgeI);
-                    edgeWeights[edgeI].append(weight);
-                    edgeTris[edgeI].append(pHit.index());
-                    geomCut newCut(edgeI, pHit.index(), weight);
+                    const scalar weight = mag(pVec)/mag(eVec);
+                    const GeometryCut newCut(edgeI, pHit.index(), weight);
                     cuts.append(newCut);
-                    edgeCuts[edgeI] = true;
                 }
                 p0 = pHit.hitPoint() + tolVec;
             }
@@ -441,234 +211,144 @@ int main(int argc, char *argv[])
         }
     }
     
-    
-//    forAll(cuts, i)
-//    {
-//        inter inte = cuts[i];
-//        Info << "inter " << inte << " " << inte.cut() << nl;
-//        
-//    }
-    
     Info << "inter " << cuts << nl;
-    
-    DynamicList<label> cutPoints(mesh.nPoints()); 
-    forAll(pointCuts, pointCutI)
-    {
-        bool cutPoint = pointCuts[pointCutI];
-        if(cutPoint)
-        {
-            cutPoints.append(pointCutI);
-        }
-    }
-    
-    DynamicList<label> cutEdges(mesh.nEdges()); 
-    forAll(edgeCuts, edgeCutI)
-    {
-        bool cutEdge = edgeCuts[edgeCutI];
-        if(cutEdge)
-        {
-            cutEdges.append(edgeCutI);
-        }
-    }
-    
-   
+
     Info << "ready" << nl;
     
-    List<label> nFaceCuts(mesh.nFaces(), 0);
+    cuts.shrink();
     
-    labelListList cutFacePoints(mesh.nFaces());
-    forAll(cutPoints, cutPointI)
+    
+    
+//  find faceCuts
+
+    labelListList facesCuts(mesh.nFaces());
+    forAll(cuts, cutI)
     {
-        label cutPoint = cutPoints[cutPointI];
-        label nCuts = pointTris[cutPoint].size();
+        GeometryCut cut = cuts[cutI];
+        labelList faces;
         
-        labelList cutFaces = mesh.pointFaces()[cutPoint];
-        
-        forAll(cutFaces, cutFaceI)
+        if(cut.isEdge())
         {
-            label cutFace = cutFaces[cutFaceI];
-            nFaceCuts[cutFace] += nCuts;
-            cutFacePoints[cutFace].append(cutPoint);
-        }   
-    }
-    
-    Info << "cutFacePoints" << cutFacePoints << nl;
-    
-    labelListList cutFaceEdges(mesh.nFaces());   
-    forAll(cutEdges, cutEdgeI)
-    {
-        label cutEdge = cutEdges[cutEdgeI];
-        labelList cutFaces = mesh.edgeFaces()[cutEdge];
-        label nCuts = edgeTris[cutEdge].size();
-        
-        forAll(cutFaces, cutFaceI)
+            label edge = cut.geometry();
+            faces = mesh.edgeFaces()[edge];
+        }
+        else
         {
-            label cutFace = cutFaces[cutFaceI];
-            nFaceCuts[cutFace] += nCuts;
-            cutFaceEdges[cutFace].append(cutEdge);
-        }   
+            label point = cut.geometry();
+            faces = mesh.pointFaces()[point];
+        }
+        forAll(faces, faceI)
+        {
+            label face = faces[faceI];
+            facesCuts[face].append(cutI);
+        }
     }
-    
-    Info << "cutFaceEdges" << cutFaceEdges << nl;
-    
-    Info << "cutPoints" << cutPoints << nl;
-    Info << "pointTris" << pointTris << nl;
-    Info << "cutEdges" << cutEdges << nl;
-    Info << "edgeTris" << edgeTris << nl;
-    Info << "edgeWeights" << edgeWeights << nl;
+    Info << "facesCuts" << facesCuts << nl;
     
     
-    
-    Info << "nFaceCuts" << nFaceCuts << nl;
-    
-    
-    labelList n(20, 0);
-    
-    forAll(nFaceCuts, faceI)
-    {
-        label nCuts = nFaceCuts[faceI];
-        n[nCuts]++;
-    }
-    
-    Info << "nCuts" << n << nl;
-    
+//    List<bool> addEdges(mesh.nEdges(), false);
+//    List<bool> addPoints(mesh.nPoints(), false);
+//    List<bool> rmEdges(mesh.nEdges(), false);
+//    List<bool> rmPoints(mesh.nPoints(), false);
+
     DynamicList<label> allCutPoints(mesh.nPoints());
     DynamicList<label> allCutEdges(mesh.nEdges());
     DynamicList<scalar> cutEdgeWeights(mesh.nEdges());
     
-    List<bool> addedEdges(mesh.nEdges(), false);
-    List<bool> addedPoints(mesh.nPoints(), false);
-    List<bool> removedEdges(mesh.nEdges(), false);
-    List<bool> removedPoints(mesh.nPoints(), false);
-    
-    forAll(nFaceCuts, cutFace)
+
+    DynamicList<label> cutFaces(mesh.nFaces());
+    forAll(facesCuts, faceI)
     {
-        label faceCuts = nFaceCuts[cutFace];
-        if(faceCuts == 2)
+        labelList faceCuts = facesCuts[faceI];
+        label nCuts = faceCuts.size();
+        
+        Info << "nCuts " << faceI << ": " << nCuts << nl;
+        
+        if(nCuts > 1)
         {
-            labelList cutEdges = cutFaceEdges[cutFace];
-            forAll(cutEdges, cutEdgeI)
+            if(nCuts == 2)
             {
-                label edge = cutEdges[cutEdgeI];
-                scalarList weights = edgeWeights[edge];
-                if(weights.size() == 1 && !addedEdges[edge])
+                forAll(faceCuts, cutI)
                 {
-                    allCutEdges.append(edge);
-                    scalar weight = weights[0];
-                    cutEdgeWeights.append(weight);
-                    addedEdges[edge] = true;
-                }
-            }
-            labelList cutPoints = cutFacePoints[cutFace];
-            forAll(cutPoints, cutPointI)
-            {
-                label point = cutPoints[cutPointI];
-                if(pointTris[point].size() == 1 && !addedPoints[point])
-                {
-                    allCutPoints.append(point);
-                    addedPoints[point] = true;
-                }
-            }
-        }
-        else if(faceCuts > 2)
-        {
-            labelList cutEdges = cutFaceEdges[cutFace];
-            labelList cutPoints = cutFacePoints[cutFace];
-            label startEdge = -1;
-            label startPoint = -1;
-            
-            if(cutEdges.size() > 0)
-            {
-                forAll(cutEdges, edgeI)
-                {
-                    label edge = cutEdges[edgeI];
-                    if(!removedEdges[edge])
+                    GeometryCut cut = cuts[faceCuts[cutI]];
+                    if(cut.isEdge())
                     {
-                        startEdge = edge;
-                        break;
+                        allCutEdges.append(cut.geometry());
+                        cutEdgeWeights.append(cut.weight());
                     }
+//                    else
+//                    {
+//                        allCutPoints.append(cut.geometry());
+//                    }
                 }
             }
-            else if(cutPoints.size() > 0)
+            else
             {
-                forAll(cutPoints, pointI)
-                {
-                    label point = cutPoints[pointI];
-                    if(!removedPoints[point])
-                    {
-                        startPoint = point;
-                        break;
-                    }
-                }
-            }
+                GeometryCut startCut;
+                GeometryCut nextCut;
+                List<GeometryCut> otherCuts;
                 
-            if(startEdge != -1)
-            {
-                labelHashSet nextTris;
                 
-                forAll(cutEdges, edgeI)
+                forAll(faceCuts, cutI)
                 {
-                    label edge = cutEdges[edgeI];
-                    if(!removedEdges[edgeI] && edge != startEdge)
+                    GeometryCut cut = cuts[faceCuts[cutI]];
+                    Info << nl << "cut " << cutI << " " << cut << nl;
+                    
+                    if(cut.isEdge() && startCut.geometry() == -1)
                     {
-                        nextTris.insert(edgeTris[edge]);
+                        allCutEdges.append(cut.geometry());
+                        cutEdgeWeights.append(cut.weight());
+                        startCut = cut;
                     }
-                }
-                forAll(cutPoints, pointI)
-                {
-                    label point = cutPoints[pointI];
-                    if(!removedPoints[pointI] && point != startPoint)
+                    else
                     {
-                        nextTris.insert(pointTris[point].toc());
+                        otherCuts.append(cut);
                     }
                 }
                 
-                label nextTri = findNextIntersection(
-                    surf,
-                    startEdge,
-                    nextTris
-                );
+                Info << "startCut " << startCut << nl;
                 
-                forAll(cutEdges, edgeI)
+                if(startCut.geometry() != -1)
                 {
-                    label edge = cutEdges[edgeI];
-                    labelList tris = edgeTris[edge];
-                    scalarList weights = edgeWeights[edge];
-                    forAll(tris, triI)
+                    nextCut = startCut.findNext(surf, otherCuts);
+                }
+                
+                Info << "nextCut " << nextCut << nl;
+                
+                if(nextCut.geometry() != -1)
+                {
+                    if(nextCut.isEdge())
                     {
-                        label tri = tris[triI];
-                        
-                        if(tri == nextTri)
-                        {
-                            if(!addedEdges[edge])
-                            {
-                                allCutEdges.append(edge);
-                                scalar weight = weights[triI];
-                                cutEdgeWeights.append(weight);
-                                Info << "start: " << startEdge << nl 
-                                     << "next: " << edge << nl << nl;
-                                addedEdges[edge] = true;
-                            }
-                        }
+                        allCutEdges.append(nextCut.geometry());
+                        cutEdgeWeights.append(nextCut.weight());
+                    }
+                    else
+                    {
+                        allCutPoints.append(nextCut.geometry());
                     }
                 }
             }
-        }
+        }   
     }
     
-    Info  << "allCutEdges" << allCutEdges << nl;
-    Info  << "cutEdgeWeights" << cutEdgeWeights << nl;
-    Info  << "allCutPoints" << allCutPoints << nl;
     
     
-    List<bool> addEdges(mesh.nEdges(), false);
-    List<bool> addPoints(mesh.nPoints(), false);
-    List<bool> rmEdges(mesh.nEdges(), false);
-    List<bool> rmPoints(mesh.nPoints(), false);
+    
+    allCutPoints.shrink();
+    allCutEdges.shrink();
+    
+    scalarField allCutEdgeWeights;
+    allCutEdgeWeights.transfer(cutEdgeWeights);
+    cutEdgeWeights.clear();
+    
+    Info << "allCutPoints" << allCutPoints << nl;
+    Info << "allCutEdges" << allCutEdges << nl;
+    Info << "allCutEdgeWeights" << allCutEdgeWeights << nl;
+    
     
 //    forAll(cuts, cutI)
 //    {
-//        geomCut cut = cuts[cutI];
+//        GeometryCut cut = cuts[cutI];
 //        
 //        if(cut.isEdge())
 //        {
@@ -684,20 +364,7 @@ int main(int argc, char *argv[])
 //        
 //    }
     
-    
-    scalarField allCutEdgeWeights;
-    allCutEdgeWeights.transfer(cutEdgeWeights);
-    cutEdgeWeights.clear();
-//   
-    
-//    forAll(cutPoints, i)
-//    {
-//        Info << mesh.pointPoints()[cutPoints[i]];
-//    }
-
-
-//    Finde die nachbarn und entferne Punkt wenn er 2 nachbarn hat
-    
+//    
     
     cellCuts cut
     (
