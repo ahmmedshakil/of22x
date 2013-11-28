@@ -416,7 +416,7 @@ actions
         sourceInfo
         {
             file            "constant/triSurface/box_bound.obj";
-            useSurfaceOrientation true;  // use closed surface inside/outside
+            useSurfaceOrientation false;  // use closed surface inside/outside
                                           // test (ignores includeCut,
                                           // outsidePoints)
             outsidePoints   ((0 0 0));    // definition of outside
@@ -428,6 +428,17 @@ actions
             curvature       -100;               // cells within nearDistance
                                                 // and near surf curvature
                                                 // (set to -100 if not used)
+        }
+    }
+    
+    {
+        name    c0;
+        type    cellZoneSet;
+        action  new;
+        source setToCellZone;
+        sourceInfo
+        {
+            set c0;           // name of cellSet
         }
     }
 

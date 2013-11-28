@@ -28,6 +28,31 @@ Description
     Utility to mesh STL-Surfaces using a cut-cell approach.
 
 \*---------------------------------------------------------------------------*/
+/*
+TODO
+
+Finde für jede geschnittene Zelle die innenliegenden triSurface Flächen.
+Varianten:
+1. Zelle ist geschnitten, aber keine Flächenpunkte innerhalb der Zelle
+    -> Zelle ist nur von ganzen Flächen geschnitten
+    -> Pro triangle nur ein Schnitt mit zugehörigen Schnittpunkten.
+2. Zelle ist geschnitten und beinhaltet Flächenpunkte.
+    -> Schnittflächen bestehen aus mehreren triangles.
+    -> Finde alle triangles, welche mit den innenliegenden Punkten verbunden sind.
+    -> speichere triangles als zusammengehörig, wenn sie punkte teilen, welche innerhalb der zelle liegen.
+    -> getrennte flächen haben keine gemeinsamen punkte innerhalb der Zelle.
+    -> Ergebnis sind zusammenhängende flächen, pro schnitt durch eine Zelle.
+    
+    FINDE AUCH FLÄCHEN SCHNEIDENDE TRISURFACE KANTEN
+    
+Methode:
+    Überprüfe in welchen Zellen sich die Flächenpunkte befinden. 
+    nehme die zugehörigen triangles und füge sie einer liste hinzu.
+    Überprüfe, welche Flächen die kanten schneiden. 
+    nehme die zugehörigen triangles und füge sie ebenfalls den jeweiligen zellenlisten hinzu.
+
+*/
+
 
 #include "argList.H"
 #include "Time.H"
@@ -158,6 +183,31 @@ int main(int argc, char *argv[])
     cuts.shrink();
     
 //    Info << cuts << nl;
+
+
+    OFstream cutPointStream("cuts.obj");
+    
+    forAll(cuts, cutI)
+    {
+        point addPoint;
+        GeometryCut cut = cuts[cutI];
+        if(cut.isPoint())
+        {
+            label p = cut.geometry();
+            addPoint = points[p];
+        }
+        else
+        {
+            label cutEdge = cut.geometry();
+            scalar weight = cut.weight();
+            const edge e = edges[cutEdge];
+            const point pStart = points[e.start()];
+            const point pEnd = points[e.end()];
+            addPoint = pStart + (pEnd - pStart) * weight;
+        }
+//        Info << points[point] << nl;
+        meshTools::writeOBJ(cutPointStream, addPoint);
+    }
 
     
     List<bool> addEdges(mesh.nEdges(), false);

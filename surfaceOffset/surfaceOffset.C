@@ -46,12 +46,22 @@ int main(int argc, char *argv[])
     argList::noParallel();
     argList::validArgs.append("surfaceFile");
     argList::validArgs.append("offset value");
-    argList::validArgs.append("output surfaceFile");
+    argList::validArgs.append("output surfaceFile");    
+    argList::addBoolOption
+    (
+        "negative",
+        "Offset in negative direction."
+    );
     argList args(argc, argv);
 
     const fileName surfFileName = args[1];
-    const scalar offset = args.argRead<scalar>(2);
-    const fileName outFileName  = args[3];
+    scalar offset = args.argRead<scalar>(2);
+    const fileName outFileName  = args[3];    
+    const bool isNegative = args.optionFound("negative");
+    if(isNegative)
+    {
+        offset *= -1;
+    }
 
     Info<< "Reading surface from " << surfFileName << " ..." << endl << endl;
 

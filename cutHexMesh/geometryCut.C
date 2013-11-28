@@ -97,7 +97,7 @@ label GeometryCut::findNext(
     const labelList& otherCuts
 )
 {
-    label nRuns = 1000;
+    label nRuns = 100000;
     label nextCut = -1;
     labelHashSet visited(nRuns);
     label startTriangle = triangle_;
