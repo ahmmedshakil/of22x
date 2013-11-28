@@ -415,17 +415,17 @@ actions
         source surfaceToCell;
         sourceInfo
         {
-            file            "constant/triSurface/bullet.obj";
+            file            "constant/triSurface/box_bound.obj";
             useSurfaceOrientation true;  // use closed surface inside/outside
                                           // test (ignores includeCut,
                                           // outsidePoints)
-            outsidePoints   ((-99 -99 -99));    // definition of outside
+            outsidePoints   ((0 0 0));    // definition of outside
             includeCut      false;              // cells cut by surface
             includeInside   true;              // cells not on outside of surf
             includeOutside  false;              // cells on outside of surf
             nearDistance    -1;                 // cells with centre near surf
                                                 // (set to -1 if not used)
-            curvature       0.9;                // cells within nearDistance
+            curvature       -100;               // cells within nearDistance
                                                 // and near surf curvature
                                                 // (set to -100 if not used)
         }
