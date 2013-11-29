@@ -105,6 +105,24 @@ namespace Foam
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
+bool shareVertex
+(
+    const triSurface& surf, 
+    const label face1I, 
+    const label face2I
+)
+{
+    labelList facePoints1(surf[face1I]);
+    labelHashSet points1;
+    points1.insert(facePoints1);
+
+    labelList facePoints2(surf[face2I]);
+    labelHashSet points2;
+    points2.insert(facePoints2);
+
+    return (points1 & points2).size() > 0;
+}
+
 
 int main(int argc, char *argv[])
 {
@@ -137,16 +155,10 @@ int main(int argc, char *argv[])
     triSurfaceSearch querySurf(surf);
     const indexedOctree<treeDataTriSurface>& tree = querySurf.tree();
     
-    DynamicList<GeometryCut> cuts(mesh.nPoints()*4);
-    DynamicList<label> cutPoints(mesh.nPoints());
-    DynamicList<label> cutPointsTriangle(mesh.nPoints());
-    DynamicList<label> cutEdges(mesh.nEdges());
-    DynamicList<label> cutEdgesTriangle(mesh.nEdges());
-    DynamicList<label> cutEdgesWeight(mesh.nEdges());
-    
-    
     Info << "find hits" << nl;
     
+//  Find all cuts
+    DynamicList<GeometryCut> cuts(mesh.nPoints()*4);
     forAll(edgeLabels, i)
     {
         label edgeI = edgeLabels[i];
@@ -171,16 +183,12 @@ int main(int argc, char *argv[])
                 if (mag(pHit.hitPoint() - pStart) < 0.01 * eMag)
                 {
                     const label startPoint = e.start();
-//                    pointCuts.append(startPoint);
-//                    pointCutsTriangle.append(pHit.index());
                     const GeometryCut newCut(startPoint, pHit.index());
                     cuts.append(newCut);
                 }
                 else if (mag(pHit.hitPoint() - pEnd) < 0.01 * eMag)
                 {
                     const label endPoint = e.end();
-//                    pointCuts.append(endPoint);
-//                    pointCutsTriangle.append(pHit.index());
                     GeometryCut newCut(endPoint, pHit.index());
                     cuts.append(newCut);
                     break;
@@ -194,9 +202,6 @@ int main(int argc, char *argv[])
                     const vector eVec(pEnd - pStart);
                     const vector pVec(pHit.hitPoint() - pStart);
                     const scalar weight = mag(pVec)/mag(eVec);
-//                    edgeCuts.append(edgeI);
-//                    edgeCutsTriangle.append(pHit.index());
-//                    edgeCutsWeight.append(weight);
                     const GeometryCut newCut(edgeI, pHit.index(), weight);
                     cuts.append(newCut);
                 }
@@ -213,71 +218,40 @@ int main(int argc, char *argv[])
     Info << "ready" << nl;
     
     cuts.shrink();
-    sort(cuts);
     
-    // Remove duplicate cuts
+    
+//  Remove duplicate cuts
     labelList keepCuts;
     uniqueOrder(cuts, keepCuts);
-    
-    
-    
-        
-    
-    for (int i = 0; i < keepCuts.size() - 1; i++)
-    {
-        bool keep = true;
-        label keepCut = keepCuts[i];
-        label nextKeepCut = keepCuts[i+1];
-        
-        if (cuts[keepCut].isPoint() && cuts[nextKeepCut].isPoint())
-        {
-            if (cuts[keepCut].geometry() == cuts[nextKeepCut].geometry())
-            {
-                Info << cuts[keepCut] << nl;
-                
-                label triangle1 = cuts[keepCut].triangle();
-                labelList pointList1(surf[triangle1]);
-                labelHashSet points1;
-                points1.insert(pointList1);
-                
-                label triangle2 = cuts[nextKeepCut].triangle();
-                labelList pointList2(surf[triangle2]);
-                labelHashSet points2;
-                points2.insert(pointList2);
-                
-                if( (points1 & points2).size() > 0)
-                {
-                    Info << "remove " << keepCut << nl;
-                }
-                
-                
-//                points1 &= points2;
-                
-//                Info << result << nl;
-                
-//                Info << tri << nl;
-                
-            }
-        }
-        
-    }
-    
-    
-    
     PackedBoolList cutsToKeep(cuts.size() , false);
     forAll(keepCuts, keepCutsI)
     {
-        label cutI = keepCuts[keepCutsI];
-        cutsToKeep[cutI] = true;
+        bool keep = true;
+        label keepCut = keepCuts[keepCutsI];
+        if(keepCutsI < keepCuts.size() - 1)
+        {
+            label nextKeepCut = keepCuts[keepCutsI + 1];
+            
+            if (cuts[keepCut].isPoint() && cuts[nextKeepCut].isPoint())
+            {
+                if (cuts[keepCut].geometry() == cuts[nextKeepCut].geometry())
+                {
+                    label triangle1 = cuts[keepCut].triangle();
+                    label triangle2 = cuts[nextKeepCut].triangle();
+                    if (shareVertex(surf, triangle1, triangle2))
+                    {
+                        keep = false;
+                    }
+                }
+            }
+        }
+        cutsToKeep[keepCut] = keep;
     }
     inplaceSubset(cutsToKeep, cuts);
     
     
-    
-    Info << cuts << nl;
-
+//  Output cuts for debugging
     OFstream cutPointStream("cuts.obj");
-    
     forAll(cuts, cutI)
     {
         point addPoint;
@@ -296,7 +270,6 @@ int main(int argc, char *argv[])
             const point pEnd = points[e.end()];
             addPoint = pStart + (pEnd - pStart) * weight;
         }
-//        Info << points[point] << nl;
         meshTools::writeOBJ(cutPointStream, addPoint);
     }
     
@@ -315,30 +288,30 @@ int main(int argc, char *argv[])
     
 //    //  find faceCuts
 
-//    labelListList facesCuts(mesh.nFaces());
-//    forAll(cuts, cutI)
-//    {
-//        GeometryCut cut = cuts[cutI];
-//        labelList faces;
-//        
-//        if(cut.isEdge())
-//        {
-//            label edge = cut.geometry();
-//            faces = mesh.edgeFaces()[edge];
-//        }
-//        else
-//        {
-//            label point = cut.geometry();
-//            faces = mesh.pointFaces()[point];
-//        }
-//        forAll(faces, faceI)
-//        {
-//            label face = faces[faceI];
-//            facesCuts[face].append(cutI);
-//        }
-//    }
-////    Info << "facesCuts" << facesCuts << nl;
-//    
+    List<DynamicList<label> > facesCuts(mesh.nFaces());
+    forAll(cuts, cutI)
+    {
+        GeometryCut cut = cuts[cutI];
+        labelList faces;
+        
+        if(cut.isEdge())
+        {
+            label edge = cut.geometry();
+            faces = mesh.edgeFaces()[edge];
+        }
+        else
+        {
+            label point = cut.geometry();
+            faces = mesh.pointFaces()[point];
+        }
+        forAll(faces, faceI)
+        {
+            label face = faces[faceI];
+            facesCuts[face].append(cutI);
+        }
+    }
+    Info << "facesCuts" << facesCuts << nl;
+    
     
     
     

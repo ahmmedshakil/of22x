@@ -129,8 +129,8 @@ public:
         // Methods
             
             label findNext(
-                const triSurface surf,
-                const List<GeometryCut> cuts,
+                const triSurface& surf,
+                const List<GeometryCut>& cuts,
                 const labelList& otherCuts
             );
             
