@@ -89,6 +89,40 @@ GeometryCut::~GeometryCut()
 }
 
 // * * * * * * * * * * * * * * * Member Functions * * * * * * * * * * * * * //
+
+//bool operator==(const GeometryCut& lhs, const GeometryCut& rhs)
+//{
+//    return
+//        lhs.geometry() == rhs.geometry()
+//     && lhs.triangle() == rhs.triangle()
+//     && lhs.weight() == rhs.weight();
+//}
+
+//bool operator!=(const GeometryCut& rhs) const
+//{
+//    return !operator==(rhs);
+//}
+
+//bool operator<(const GeometryCut& rhs) const
+//{
+//    bool lt = true;
+//    if (!(geometry_ < rhs.geometry()))
+//    {
+//        if (geometry_ == rhs.geometry())
+//        {
+//            if (!(triangle_ < rhs.triangle()))
+//            {
+//                lt = false;
+//            }
+//        }
+//        else
+//        {
+//            lt = false;
+//        }
+//    }
+//    
+//    return lt;
+//}
         
 
 label GeometryCut::findNext(

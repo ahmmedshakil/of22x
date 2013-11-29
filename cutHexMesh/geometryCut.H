@@ -134,9 +134,9 @@ public:
                 const labelList& otherCuts
             );
             
-        // Compare
+        // Operators
             
-            bool operator==(const GeometryCut& rhs) const
+            inline bool operator==(const GeometryCut &rhs) const
             {
                 return
                     geometry_ == rhs.geometry()
@@ -144,9 +144,30 @@ public:
                  && weight_ == rhs.weight();
             }
 
-            bool operator!=(const GeometryCut& rhs) const
+            inline bool operator!=(const GeometryCut &rhs) const
             {
                 return !operator==(rhs);
+            }
+
+            inline bool operator<(const GeometryCut &rhs) const
+            {
+                bool lt = true;
+                if (!(geometry_ < rhs.geometry()))
+                {
+                    if (geometry_ == rhs.geometry())
+                    {
+                        if (!(triangle_ < rhs.triangle()))
+                        {
+                            lt = false;
+                        }
+                    }
+                    else
+                    {
+                        lt = false;
+                    }
+                }
+                
+                return lt;
             }
         
         // Write
