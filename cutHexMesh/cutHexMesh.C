@@ -232,13 +232,17 @@ int main(int argc, char *argv[])
         {
             label nextKeepCut = keepCuts[keepCutsI + 1];
             
+            // packe in Methode von GeometryCut
+            // cut und nextCut
+            // if( cut.isSamePointAs(nextCut)
+            
             if (cuts[keepCut].isPoint() && cuts[nextKeepCut].isPoint())
             {
                 if (cuts[keepCut].geometry() == cuts[nextKeepCut].geometry())
                 {
-                    label triangle1 = cuts[keepCut].triangle();
-                    label triangle2 = cuts[nextKeepCut].triangle();
-                    if (shareVertex(surf, triangle1, triangle2))
+                    label triangle = cuts[keepCut].triangle();
+                    label nextTriangle = cuts[nextKeepCut].triangle();
+                    if (shareVertex(surf, triangle, nextTriangle))
                     {
                         keep = false;
                     }
