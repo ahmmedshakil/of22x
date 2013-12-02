@@ -38,10 +38,16 @@ namespace Foam
 
 // * * * * * * * * * * * * * * Static Data Members * * * * * * * * * * * * * //
 
+triSurface GeometryCut::surf;
 
 
 // * * * * * * * * * * * * * Private Static Functions * * * * * * * * * * * //
 
+     
+void GeometryCut::setTriSurface(const triSurface& triSurf) 
+{
+    surf = triSurf;
+}
 
 
 
@@ -123,8 +129,30 @@ GeometryCut::~GeometryCut()
 //    
 //    return lt;
 //}
-        
 
+bool GeometryCut::isEqual(const GeometryCut& otherCut)
+{
+    bool isEqualCut = false;
+    
+    if (isPoint() && otherCut.isPoint())
+    {
+        if (geometry() == otherCut.geometry())
+        {
+            labelList facePoints1(surf[triangle()]);
+            labelHashSet points1;
+            points1.insert(facePoints1);
+
+            labelList facePoints2(surf[otherCut.triangle()]);
+            labelHashSet points2;
+            points2.insert(facePoints2);
+
+            if ((points1 & points2).size() > 0)
+                isEqualCut = true;
+        }
+    }
+    return isEqualCut;
+}
+            
 label GeometryCut::findNext(
     const triSurface& surf,
     const List<GeometryCut>& cuts,

@@ -25,36 +25,18 @@ Application
     moveMeshPoints
 
 Description
-    Utility to move Points of a Mesh onto a near face.
+    Utility to move Points of a Mesh onto a near triSurface.
 
 \*---------------------------------------------------------------------------*/
 
 #include "argList.H"
 #include "Time.H"
 #include "polyTopoChange.H"
-#include "polyTopoChanger.H"
-#include "mapPolyMesh.H"
 #include "polyMesh.H"
-#include "cellCuts.H"
-#include "cellSet.H"
-#include "meshCutter.H"
 #include "triSurfaceSearch.H"
-#include "surfaceFeatures.H"
-#include "treeBoundBox.H"
-#include "meshTools.H"
-#include "triangle.H"
-#include "polyTopoChange.H"
 #include "triSurface.H"
-#include "triSurfaceTools.H"
-#include "unitConversion.H"
-
 
 using namespace Foam;
-
-namespace Foam
-{
-    scalar alignedCos_ = cos(degToRad(89.0));
-}
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -77,8 +59,7 @@ int main(int argc, char *argv[])
     const fileName surfName = args[1];
     const scalar tol = args.argRead<scalar>(2);
     
-    triSurface surf(runTime.constantPath()/"triSurface"/surfName);    
-    
+    triSurface surf(runTime.constantPath()/"triSurface"/surfName);   
 
     pointField points = mesh.points();
     labelList edgeLabels(mesh.nEdges());
@@ -90,55 +71,49 @@ int main(int argc, char *argv[])
     
     
     triSurfaceSearch querySurf(surf);
-    
     const indexedOctree<treeDataTriSurface>& tree = querySurf.tree();
     
     Info << "Find points near triSurface" << endl << endl;
     
     DynamicList<label> movePoints(mesh.nPoints());
     DynamicList<point> newLocations(mesh.nPoints());
-    
-    
     forAll(edgeLabels, i)
     {
         label edgeI = edgeLabels[i];
         const edge e = edges[edgeI];
         const point pStart = points[e.start()] ;
         const point pEnd = points[e.end()] ;
-        
-        point p0 = pStart;
-        const point p1 = pEnd;
-        
         const vector eVec(pEnd - pStart);
         const scalar eMag = mag(eVec);
         const vector n(eVec/(eMag + VSMALL));
         const point tolVec = 1e-6*eVec;
         const scalar eTol = tol * eMag;
-            
+        point p0 = pStart - tolVec;
+        const point p1 = pEnd + tolVec;
         bool foundStart = false;
         bool foundEnd = false;
-        
         pointIndexHit nearHitStart;
         pointIndexHit nearHitEnd;
-                
         while(true)
         {
             pointIndexHit pHit = tree.findLine(p0, p1);
             
             if(pHit.hit())
             {
-                
                 if (mag(pHit.hitPoint() - pStart) < eTol && !foundStart)
                 {
-                    nearHitStart = tree.findNearest(pStart, eTol);
                     foundStart = true;
                 }
                 else if (mag(pHit.hitPoint() - pEnd) < eTol)
                 {
-                    nearHitEnd = tree.findNearest(pEnd, eTol);
                     foundEnd = true;
+                    
+                    if (mag(pHit.hitPoint() - pEnd) < 1e-6*eMag)
+                    {
+                        // Reached end.
+                        break;
+                    }
                 }
-                
                 p0 = pHit.hitPoint() + tolVec;
             }
             else
@@ -151,15 +126,13 @@ int main(int argc, char *argv[])
         if(foundStart)
         {
             movePoints.append(e.start());
-            newLocations.append(nearHitStart.hitPoint());
+            newLocations.append(tree.findNearest(pStart, eTol).hitPoint());
         }
-        
         if(foundEnd)
         {
             movePoints.append(e.end());
-            newLocations.append(nearHitEnd.hitPoint());
+            newLocations.append(tree.findNearest(pEnd, eTol).hitPoint());
         }
-        
     }
     
     movePoints.shrink();

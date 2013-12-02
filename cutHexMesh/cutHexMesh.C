@@ -50,12 +50,6 @@ Methode:
 
 
 
-Falls geschnittene Punkte mehrmals auftreten entferne redundante cuts.
-entweder punkte und triangles sind identisch -> identischer cut
-Falls punkte identisch aber triangles unterschiedlich:
-finde nachbar triangles (mit eckpunkten)
-falls nachbartriangle identisch -> identischer cut
-ansonsten: cut durch andere fläche -> mehrfacher cut
 
 
 PackedBoolList elemToRemove(l.size());
@@ -81,11 +75,14 @@ inplaceSubset(elemToRemove, l);
 #include "cellCuts.H"
 #include "cellSet.H"
 #include "meshCutter.H"
+#include "meshSearch.H"
 #include "triSurfaceSearch.H"
 #include "triSurface.H"
 #include "triSurfaceTools.H"
 #include "surfaceFeatures.H"
 #include "treeBoundBox.H"
+#include "treeDataFace.H"
+#include "treeDataCell.H"
 #include "meshTools.H"
 #include "triangle.H"
 #include "polyTopoChange.H"
@@ -105,74 +102,40 @@ namespace Foam
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-bool shareVertex
+void computeCuts
 (
-    const triSurface& surf, 
-    const label face1I, 
-    const label face2I
+    DynamicList<GeometryCut>& cuts, 
+    const polyMesh& mesh, 
+    const triSurface& surf
 )
 {
-    labelList facePoints1(surf[face1I]);
-    labelHashSet points1;
-    points1.insert(facePoints1);
-
-    labelList facePoints2(surf[face2I]);
-    labelHashSet points2;
-    points2.insert(facePoints2);
-
-    return (points1 & points2).size() > 0;
-}
-
-
-int main(int argc, char *argv[])
-{
-    #include "addOverwriteOption.H"
-    argList::noParallel();
-    argList::validArgs.append("input surfaceFile");
-//    argList::validArgs.append("feature angle");
-
-#   include "setRootCase.H"
-#   include "createTime.H"
-    runTime.functionObjects().off();
-#   include "createPolyMesh.H"
-    const word oldInstance = mesh.pointsInstance();
-
-    const bool overwrite = args.optionFound("overwrite");
-    const fileName surfName = args[1];
-    triSurface surf(runTime.constantPath()/"triSurface"/surfName);  
+    GeometryCut::setTriSurface(surf);
     const vectorField& normals = surf.faceNormals();
-    
 
-    pointField points = mesh.points();
     labelList edgeLabels(mesh.nEdges());
     forAll(edgeLabels, i)
     {
         edgeLabels[i] = i;
     }
-    const edgeList edges = mesh.edges();
-    
-    
+        
     triSurfaceSearch querySurf(surf);
     const indexedOctree<treeDataTriSurface>& tree = querySurf.tree();
-    
-    Info << "find hits" << nl;
-    
+
 //  Find all cuts
-    DynamicList<GeometryCut> cuts(mesh.nPoints()*4);
     forAll(edgeLabels, i)
     {
         label edgeI = edgeLabels[i];
-        const edge e = edges[edgeI];
-        const point pStart = points[e.start()] ;
-        const point pEnd = points[e.end()] ;
-        
-        point p0 = pStart;
-        const point p1 = pEnd;
+        const edge e = mesh.edges()[edgeI];
+        const point pStart = mesh.points()[e.start()] ;
+        const point pEnd = mesh.points()[e.end()] ;
         
         const vector eVec(pEnd - pStart);
         const scalar eMag = mag(eVec);
         const vector n(eVec/(eMag + VSMALL));
         const point tolVec = 1e-6*eVec;
+        
+        point p0 = pStart - tolVec;
+        const point p1 = pEnd + tolVec;
               
         while(true)
         {
@@ -214,11 +177,7 @@ int main(int argc, char *argv[])
             }
         }
     }
-
-    Info << "ready" << nl;
-    
     cuts.shrink();
-    
     
 //  Remove duplicate cuts
     labelList keepCuts;
@@ -232,29 +191,22 @@ int main(int argc, char *argv[])
         {
             label nextKeepCut = keepCuts[keepCutsI + 1];
             
-            // packe in Methode von GeometryCut
-            // cut und nextCut
-            // if( cut.isSamePointAs(nextCut)
-            
-            if (cuts[keepCut].isPoint() && cuts[nextKeepCut].isPoint())
-            {
-                if (cuts[keepCut].geometry() == cuts[nextKeepCut].geometry())
-                {
-                    label triangle = cuts[keepCut].triangle();
-                    label nextTriangle = cuts[nextKeepCut].triangle();
-                    if (shareVertex(surf, triangle, nextTriangle))
-                    {
-                        keep = false;
-                    }
-                }
-            }
+            if (cuts[keepCut].isEqual(cuts[nextKeepCut]))
+                keep = false;
         }
         cutsToKeep[keepCut] = keep;
     }
     inplaceSubset(cutsToKeep, cuts);
-    
-    
-//  Output cuts for debugging
+}
+
+
+
+void writeCuts
+(
+    const DynamicList<GeometryCut>& cuts, 
+    const polyMesh& mesh
+)
+{
     OFstream cutPointStream("cuts.obj");
     forAll(cuts, cutI)
     {
@@ -263,35 +215,164 @@ int main(int argc, char *argv[])
         if(cut.isPoint())
         {
             label p = cut.geometry();
-            addPoint = points[p];
+            addPoint = mesh.points()[p];
         }
         else
         {
             label cutEdge = cut.geometry();
             scalar weight = cut.weight();
-            const edge e = edges[cutEdge];
-            const point pStart = points[e.start()];
-            const point pEnd = points[e.end()];
+            const edge e = mesh.edges()[cutEdge];
+            const point pStart = mesh.points()[e.start()];
+            const point pEnd = mesh.points()[e.end()];
             addPoint = pStart + (pEnd - pStart) * weight;
         }
         meshTools::writeOBJ(cutPointStream, addPoint);
     }
-    
-    
-    
-//    List<bool> addEdges(mesh.nEdges(), false);
-//    List<bool> addPoints(mesh.nPoints(), false);
-//    List<bool> rmEdges(mesh.nEdges(), false);
-//    List<bool> rmPoints(mesh.nPoints(), false);
-//    
-//    List<bool> removedCuts(cuts.size(), false);
-//    
-//    List<bool> addedCuts(cuts.size(), false);
-//    List<bool> visitedFaces(mesh.nFaces(), false);
-//    
-    
-//    //  find faceCuts
+}
 
+
+void computeCutsPerCell
+(
+    List<labelHashSet>& cutsPerCell, 
+    const polyMesh& mesh, 
+    const triSurface& surf
+)
+{
+    labelList edgeLabels(surf.nEdges());
+    forAll(edgeLabels, i)
+    {
+        edgeLabels[i] = i;
+    }
+        
+//    meshSearch queryMesh(mesh);
+      
+    
+    treeBoundBox allBb(mesh.points());
+    // Extend domain slightly (also makes it 3D if was 2D)
+    scalar bbTol = 1e-6 * allBb.avgDim();
+
+    point& bbMin = allBb.min();
+    bbMin.x() -= bbTol;
+    bbMin.y() -= bbTol;
+    bbMin.z() -= bbTol;
+
+    point& bbMax = allBb.max();
+    bbMax.x() += 2*bbTol;
+    bbMax.y() += 2*bbTol;
+    bbMax.z() += 2*bbTol;
+
+    indexedOctree<treeDataFace> faceTree
+    (
+        treeDataFace(false, mesh),
+        allBb, // overall search domain
+        8, // maxLevel
+        10, // leafsize
+        3.0 // duplicity
+    );
+
+    forAll(edgeLabels, i)
+    {
+        label edgeI = edgeLabels[i];
+        const edge e = surf.edges()[edgeI];
+        const point pStart = surf.points()[e.start()] ;
+        const point pEnd = surf.points()[e.end()] ;
+        
+        const vector eVec(pEnd - pStart);
+        const scalar eMag = mag(eVec);
+        const vector n(eVec/(eMag + VSMALL));
+        const vector tolVec = 1e-6*eVec;
+        
+        point p0 = pStart - tolVec;
+        const point p1 = pEnd + tolVec;
+        
+        pointIndexHit pHit;
+        do
+        {
+            pHit = faceTree.findLine(p0, p1);
+            
+            if (pHit.hit())
+            {
+                const label faceI = pHit.index();
+                
+                labelList triangles = surf.edgeFaces()[edgeI];
+                
+                forAll(triangles, i)
+                {
+                    label triangle = triangles[i];
+                    cutsPerCell[mesh.faceOwner()[faceI]].insert(triangle);
+                    if (mesh.isInternalFace(faceI))
+                    {
+                        cutsPerCell[mesh.faceNeighbour()[faceI]].insert(triangle);
+                    }
+                } 
+            
+                const vector& area = mesh.faceAreas()[pHit.index()];
+                scalar typDim = Foam::sqrt(mag(area));
+                if ((mag(pHit.hitPoint() - pEnd)/typDim) < SMALL)
+                {
+                    break;
+                }
+                p0 = pHit.hitPoint() + tolVec;
+            }
+            
+        } while (pHit.hit());
+    }
+    
+    
+    labelList pointLabels(surf.nPoints());
+    forAll(pointLabels, i)
+    {
+        pointLabels[i] = i;
+    }
+    
+    indexedOctree<treeDataCell> cellTree
+    (
+        treeDataCell(false, mesh, polyMesh::FACEDIAGTETS),
+        allBb, // overall search domain
+        8, // maxLevel
+        10, // leafsize
+        3.0 // duplicity
+    ); 
+    
+    forAll(pointLabels, pointI)
+    {
+        const point searchPoint = surf.points()[pointI];
+        const label cellI = cellTree.findInside(searchPoint);
+                
+        labelList triangles = surf.pointFaces()[pointI];
+        forAll(triangles, i)
+        {
+            const label triangle = triangles[i];
+            cutsPerCell[cellI].insert(triangle);
+        }
+    }
+}
+
+int main(int argc, char *argv[])
+{
+    #include "addOverwriteOption.H"
+    argList::noParallel();
+    argList::validArgs.append("input surfaceFile");
+//    argList::validArgs.append("feature angle");
+
+#   include "setRootCase.H"
+#   include "createTime.H"
+    runTime.functionObjects().off();
+#   include "createPolyMesh.H"
+    const word oldInstance = mesh.pointsInstance();
+
+    const bool overwrite = args.optionFound("overwrite");
+    const fileName surfName = args[1];
+    triSurface surf(runTime.constantPath()/"triSurface"/surfName);  
+    
+    DynamicList<GeometryCut> cuts(mesh.nPoints()*4);
+    computeCuts(cuts, mesh, surf);
+    writeCuts(cuts, mesh);
+
+    
+    
+    
+//    //  find facesCuts
     List<DynamicList<label> > facesCuts(mesh.nFaces());
     forAll(cuts, cutI)
     {
@@ -314,10 +395,77 @@ int main(int argc, char *argv[])
             facesCuts[face].append(cutI);
         }
     }
-    Info << "facesCuts" << facesCuts << nl;
+//    Info << "facesCuts" << facesCuts << nl;
+    
+    DynamicList<label> cutFaces(mesh.nFaces());
+    forAll(facesCuts, faceI)
+    {
+        label nFaceCuts = facesCuts[faceI].size();
+        if (nFaceCuts > 1)
+        {
+            cutFaces.append(faceI);
+        }
+    }
+    cutFaces.shrink();
+//    Info << "cutFaces " << cutFaces << nl;
+
+    List<DynamicList<label> > cellsCutFaces(mesh.nCells());
+    forAll(cutFaces, i)
+    {
+        label faceI = cutFaces[i];
+        label owner = mesh.faceOwner()[faceI];
+        cellsCutFaces[owner].append(faceI);
+        
+        if (mesh.isInternalFace(faceI))
+        {
+            label neighbour = mesh.faceNeighbour()[faceI];
+            cellsCutFaces[neighbour].append(faceI);
+        }
+    }
+//    Info << "cellsCutFaces " << cellsCutFaces << nl;
+    
+    DynamicList<label> cutCells(mesh.nCells());
+    forAll(cellsCutFaces, cellI)
+    {
+        label nCellCuts = cellsCutFaces[cellI].size();
+        
+        
+        if (nCellCuts > 2)
+        {
+            cutCells.append(cellI);
+        }
+    }
+    cutCells.shrink();
+//    Info << "cutCells " << cutCells << nl;
     
     
     
+    List<labelHashSet> cutsPerCell(mesh.nCells());
+    computeCutsPerCell(cutsPerCell, mesh, surf);
+    
+    forAll(cutsPerCell, i)
+    {
+        Info << cutsPerCell[i].toc() << nl;
+    }
+    
+    
+// TODO -------------------------------------------------------------------------------------
+    forAll(cutsPerCell, cellI)
+    {
+        
+        labelList faces = cutsPerCell[cellI].toc();
+        if (faces.size() > 0)
+        {
+            OFstream cutPointStream("cell" + name(cellI) + ".obj");
+            
+            
+            forAll(faces, i)
+            {
+                labelList points = surf[faces[i]];
+                meshTools::writeOBJ(cutPointStream, surf.points()[points[i]]);
+            }
+        }
+    }
     
 //    DynamicList<label> checkCuts;
 //    

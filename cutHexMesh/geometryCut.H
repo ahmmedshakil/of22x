@@ -61,6 +61,8 @@ class GeometryCut
         
         //- Weight of cut on edge. -1 if point. 
         scalar weight_;
+        
+        static triSurface surf;
 
 public:
 
@@ -128,10 +130,16 @@ public:
             
         // Methods
             
+            static void setTriSurface(const triSurface& triSurf);
+            
             label findNext(
                 const triSurface& surf,
                 const List<GeometryCut>& cuts,
                 const labelList& otherCuts
+            );
+            
+            bool isEqual(
+                const GeometryCut& otherCut
             );
             
         // Operators
