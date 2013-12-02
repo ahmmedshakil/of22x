@@ -111,6 +111,7 @@ void computeCuts
 {
     GeometryCut::setTriSurface(surf);
     const vectorField& normals = surf.faceNormals();
+    
 
     labelList edgeLabels(mesh.nEdges());
     forAll(edgeLabels, i)
@@ -231,7 +232,7 @@ void writeCuts
 }
 
 
-void computeCutsPerCell
+void computeTrianglesPerCell
 (
     List<labelHashSet>& cutsPerCell, 
     const polyMesh& mesh, 
@@ -243,9 +244,7 @@ void computeCutsPerCell
     {
         edgeLabels[i] = i;
     }
-        
-//    meshSearch queryMesh(mesh);
-      
+    Map<label> map(surf.meshPointMap());
     
     treeBoundBox allBb(mesh.points());
     // Extend domain slightly (also makes it 3D if was 2D)
@@ -274,9 +273,8 @@ void computeCutsPerCell
     {
         label edgeI = edgeLabels[i];
         const edge e = surf.edges()[edgeI];
-        const point pStart = surf.points()[e.start()] ;
-        const point pEnd = surf.points()[e.end()] ;
-        
+        const point pStart = surf.localPoints()[e.start()];
+        const point pEnd = surf.localPoints()[e.end()];
         const vector eVec(pEnd - pStart);
         const scalar eMag = mag(eVec);
         const vector n(eVec/(eMag + VSMALL));
@@ -338,15 +336,77 @@ void computeCutsPerCell
     {
         const point searchPoint = surf.points()[pointI];
         const label cellI = cellTree.findInside(searchPoint);
-                
-        labelList triangles = surf.pointFaces()[pointI];
-        forAll(triangles, i)
+        labelList triangles = surf.pointFaces()[map[pointI]];
+        if (cellI != -1)
         {
-            const label triangle = triangles[i];
-            cutsPerCell[cellI].insert(triangle);
+            forAll(triangles, i)
+            {
+                const label triangle = triangles[i];
+                cutsPerCell[cellI].insert(triangle);
+            }
         }
     }
 }
+
+void agglomerateTriangles(
+    const labelList& triangles, 
+    const triSurface& surf, 
+    labelList& agglomeration
+)
+{
+    List<labelHashSet> surfaces(triangles.size());
+    List<labelHashSet> points(triangles.size());
+    
+    forAll(triangles, triangleI)
+    {
+        labelList trianglePoints(surf[triangles[triangleI]]);
+        
+        surfaces[triangleI].insert(triangleI);
+        points[triangleI].insert(trianglePoints);
+    }
+    
+    bool foundConnected;
+    
+    do
+    {
+        foundConnected = false;
+        for (int i = 0; i < surfaces.size(); i++)
+        {
+            if (surfaces[i].size() > 0)
+            {
+                for (int j = i + 1; j < surfaces.size(); j++)
+                {
+                    if ((points[i] & points[j]).size() > 0)
+                    {
+                        points[i] += points[j];
+                        points[j].clear();
+                        surfaces[i] += surfaces[j];
+                        surfaces[j].clear();
+                        foundConnected = true;
+                    }
+                }
+            }
+        }
+    }
+    while (foundConnected);
+    
+    
+    label group = 0;
+    forAll(surfaces, surfaceI)
+    {
+        labelList triangles = surfaces[surfaceI].toc();
+        if (triangles.size() > 0)
+        {
+            forAll(triangles, triangleI)
+            {
+                label triangle = triangles[triangleI];
+                agglomeration[triangle] = group;
+            }
+            group++;
+        }
+    }
+}
+
 
 int main(int argc, char *argv[])
 {
@@ -440,32 +500,76 @@ int main(int argc, char *argv[])
     
     
     
-    List<labelHashSet> cutsPerCell(mesh.nCells());
-    computeCutsPerCell(cutsPerCell, mesh, surf);
+    List<labelHashSet> trianglesPerCell(mesh.nCells());
+    computeTrianglesPerCell(trianglesPerCell, mesh, surf);
     
-    forAll(cutsPerCell, i)
+    List<DynamicList<DynamicList<label> > > cutsPerCell(mesh.nCells());
+    
+    forAll(trianglesPerCell, cellI)
     {
-        Info << cutsPerCell[i].toc() << nl;
-    }
-    
-    
-// TODO -------------------------------------------------------------------------------------
-    forAll(cutsPerCell, cellI)
-    {
-        
-        labelList faces = cutsPerCell[cellI].toc();
-        if (faces.size() > 0)
+        labelList triangles = trianglesPerCell[cellI].toc();
+        if (triangles.size() > 0)
         {
-            OFstream cutPointStream("cell" + name(cellI) + ".obj");
-            
-            
-            forAll(faces, i)
-            {
-                labelList points = surf[faces[i]];
-                meshTools::writeOBJ(cutPointStream, surf.points()[points[i]]);
-            }
+            labelList agglomeration(triangles.size());
+            agglomerateTriangles(triangles, surf, agglomeration);
+            Info << agglomeration << nl << nl;
         }
     }
+    
+    
+//    forAll(cutsPerCell, i)
+//    {
+//        Info << cutsPerCell[i].toc() << nl;
+//    }
+    
+    
+//    Map<label> map(surf.meshPointMap());
+
+//    forAll(cutsPerCell, cellI)
+//    {
+//        
+//        labelList faces = cutsPerCell[cellI].toc();
+//        if (faces.size() > 0)
+//        {
+//            Info << name(cellI) << " " << faces << nl;
+//            
+//            OFstream cutPointStream("cell" + name(cellI) + ".obj");
+//            
+//            
+//            forAll(faces, i)
+//            {
+//                labelList points(surf[faces[i]]);
+//                forAll(points, i)
+//                {
+//                    meshTools::writeOBJ(
+//                        cutPointStream, 
+//                        surf.points()[points[i]]
+//                    );
+//                }
+//            }
+//        }
+//    }
+    
+//    forAll(cutsPerCell, cellI)
+//    {
+//        
+//        labelList points = cutsPerCell[cellI].toc();
+//        if (points.size() > 0)
+//        {
+//            Info << points << nl;
+//            
+//            OFstream cutPointStream("cell" + name(cellI) + ".obj");
+//            
+//            forAll(points, i)
+//            {
+//                meshTools::writeOBJ(
+//                    cutPointStream, 
+//                    surf.points()[points[i]]
+//                );
+//            }
+//        }
+//    }
+//    
     
 //    DynamicList<label> checkCuts;
 //    
