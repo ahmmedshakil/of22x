@@ -90,6 +90,7 @@ inplaceSubset(elemToRemove, l);
 #include "geometryCut.H"
 #include "unitConversion.H"
 #include "SortableList.H"
+#include "cutSearcher.H"
 
 
 using namespace Foam;
@@ -425,6 +426,11 @@ int main(int argc, char *argv[])
     const fileName surfName = args[1];
     triSurface surf(runTime.constantPath()/"triSurface"/surfName);  
     
+    CutSearcher cutSearcher(mesh, surf);
+    cutSearcher.computeCuts();
+    cutSearcher.computeTrianglesPerCell();
+    
+    
     DynamicList<GeometryCut> cuts(mesh.nPoints()*4);
     computeCuts(cuts, mesh, surf);
     writeCuts(cuts, mesh);
@@ -512,7 +518,7 @@ int main(int argc, char *argv[])
         {
             labelList agglomeration(triangles.size());
             agglomerateTriangles(triangles, surf, agglomeration);
-            Info << agglomeration << nl << nl;
+//            Info << agglomeration << nl << nl;
         }
     }
     

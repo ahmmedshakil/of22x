@@ -24,8 +24,6 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "geometryCut.H"
-#include "triSurface.H"
-#include "triSurfaceTools.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 

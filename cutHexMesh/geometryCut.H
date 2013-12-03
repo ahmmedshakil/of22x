@@ -41,6 +41,7 @@ SourceFiles
 #include "DynamicList.H"
 #include "typeInfo.H"
 #include "triSurface.H"
+#include "triSurfaceTools.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
