@@ -125,13 +125,21 @@ int main(int argc, char *argv[])
         
         if(foundStart)
         {
-            movePoints.append(e.start());
-            newLocations.append(tree.findNearest(pStart, eTol).hitPoint());
+            pointIndexHit pHit = tree.findNearest(pStart, eTol);
+            if (pHit.hit())
+            {
+                movePoints.append(e.start());
+                newLocations.append(pHit.hitPoint());
+            }
         }
         if(foundEnd)
         {
-            movePoints.append(e.end());
-            newLocations.append(tree.findNearest(pEnd, eTol).hitPoint());
+            pointIndexHit pHit = tree.findNearest(pEnd, eTol);
+            if (pHit.hit())
+            {
+                movePoints.append(e.end());
+                newLocations.append(pHit.hitPoint());
+            }
         }
     }
     

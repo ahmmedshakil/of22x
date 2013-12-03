@@ -101,6 +101,8 @@ public:
             
             void computeTrianglesPerCell();
             
+//            void agglomerateTriangles();
+            
         // Operators
             
         

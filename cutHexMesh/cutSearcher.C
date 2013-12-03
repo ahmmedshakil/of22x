@@ -297,6 +297,60 @@ void CutSearcher::computeTrianglesPerCell()
     }
 }
 
+//void agglomerateTriangles()
+//{
+//    List<labelHashSet> surfaces(triangles.size());
+//    List<labelHashSet> points(triangles.size());
+//    
+//    forAll(triangles, triangleI)
+//    {
+//        labelList trianglePoints(surf[triangles[triangleI]]);
+//        
+//        surfaces[triangleI].insert(triangleI);
+//        points[triangleI].insert(trianglePoints);
+//    }
+//    
+//    bool foundConnected;
+//    
+//    do
+//    {
+//        foundConnected = false;
+//        for (int i = 0; i < surfaces.size(); i++)
+//        {
+//            if (surfaces[i].size() > 0)
+//            {
+//                for (int j = i + 1; j < surfaces.size(); j++)
+//                {
+//                    if ((points[i] & points[j]).size() > 0)
+//                    {
+//                        points[i] += points[j];
+//                        points[j].clear();
+//                        surfaces[i] += surfaces[j];
+//                        surfaces[j].clear();
+//                        foundConnected = true;
+//                    }
+//                }
+//            }
+//        }
+//    }
+//    while (foundConnected);
+//    
+//    
+//    label group = 0;
+//    forAll(surfaces, surfaceI)
+//    {
+//        labelList triangles = surfaces[surfaceI].toc();
+//        if (triangles.size() > 0)
+//        {
+//            forAll(triangles, triangleI)
+//            {
+//                label triangle = triangles[triangleI];
+//                agglomeration[triangle] = group;
+//            }
+//            group++;
+//        }
+//    }
+//}
 
 
 
