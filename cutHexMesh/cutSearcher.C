@@ -232,14 +232,21 @@ void CutSearcher::computeTrianglesPerCell()
         point p0 = pStart - tolVec;
         const point p1 = pEnd + tolVec;
         
-        pointIndexHit pHit;
-        do
+        label lastFaceI = -1;
+        
+        while(true)
         {
-            pHit = faceTree.findLine(p0, p1);
+            pointIndexHit pHit = faceTree.findLine(p0, p1);
             
             if (pHit.hit())
             {
                 const label faceI = pHit.index();
+                
+                if (faceI == lastFaceI)
+                {
+                    break;
+                }
+                lastFaceI = faceI;
                 
                 labelList triangles = surf_.edgeFaces()[edgeI];
                 
@@ -255,14 +262,21 @@ void CutSearcher::computeTrianglesPerCell()
             
                 const vector& area = mesh_.faceAreas()[pHit.index()];
                 scalar typDim = Foam::sqrt(mag(area));
+                
                 if ((mag(pHit.hitPoint() - pEnd)/typDim) < SMALL)
                 {
                     break;
                 }
                 p0 = pHit.hitPoint() + tolVec;
             }
-            
-        } while (pHit.hit());
+            else
+            {
+                // No hit.
+                break;
+            }
+        }
+        
+//        Info << i;
     }
     
     

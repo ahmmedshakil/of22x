@@ -349,7 +349,7 @@ void computeTrianglesPerCell
     }
 }
 
-List<labelHashSet>& agglomerateTriangles(
+List<labelHashSet> agglomerateTriangles(
     const labelList& triangles, 
     const triSurface& surf
 //    List<labelHashSet>& agglomeration
@@ -362,7 +362,7 @@ List<labelHashSet>& agglomerateTriangles(
     {
         labelList trianglePoints(surf[triangles[triangleI]]);
         
-        surfaces[triangleI].insert(triangleI);
+        surfaces[triangleI].insert(triangles[triangleI]);
         points[triangleI].insert(trianglePoints);
     }
     
@@ -392,10 +392,11 @@ List<labelHashSet>& agglomerateTriangles(
     while (foundConnected);
     
     
-    List<labelHashSet> agglomeration;
+    DynamicList<labelHashSet> agglomeration;
     forAll(surfaces, surfaceI)
     {
         labelHashSet triangles = surfaces[surfaceI];
+//        Info << triangles << nl;
         if (triangles.size() > 0)
         {
             agglomeration.append(triangles);
@@ -438,40 +439,45 @@ int main(int argc, char *argv[])
     triSurface surf(runTime.constantPath()/"triSurface"/surfName);  
     
     CutSearcher cutSearcher(mesh, surf);
+    
+    Info << "Find cuts..." << nl;
     cutSearcher.computeCuts();
+//    cutSearcher.writeCuts();
+
+    Info << "Triangles per cell..." << nl;
     cutSearcher.computeTrianglesPerCell();
 //    cutSearcher.agglomerateTriangles();
     
-    DynamicList<GeometryCut> cuts(mesh.nPoints()*4);
-    computeCuts(cuts, mesh, surf);
-    writeCuts(cuts, mesh);
+//    DynamicList<GeometryCut> cuts(mesh.nPoints()*4);
+//    computeCuts(cuts, mesh, surf);
+//    writeCuts(cuts, mesh);
 
     
     
-//    //  find cellsCuts
-    List<DynamicList<label> > cellsCuts(mesh.nCells());
-    forAll(cuts, cutI)
-    {
-        GeometryCut cut = cuts[cutI];
-        labelList cells;
-        
-        if(cut.isEdge())
-        {
-            label edge = cut.geometry();
-            cells = mesh.edgeCells()[edge];
-        }
-        else
-        {
-            label point = cut.geometry();
-            cells = mesh.pointCells()[point];
-        }
-        forAll(cells, cellI)
-        {
-            label cell = cells[cellI];
-            cellsCuts[cell].append(cutI);
-        }
-    }
-//    Info << "facesCuts" << facesCuts << nl;
+////    //  find cellsCuts
+//    List<DynamicList<label> > cellsCuts(mesh.nCells());
+//    forAll(cuts, cutI)
+//    {
+//        GeometryCut cut = cuts[cutI];
+//        labelList cells;
+//        
+//        if(cut.isEdge())
+//        {
+//            label edge = cut.geometry();
+//            cells = mesh.edgeCells()[edge];
+//        }
+//        else
+//        {
+//            label point = cut.geometry();
+//            cells = mesh.pointCells()[point];
+//        }
+//        forAll(cells, cellI)
+//        {
+//            label cell = cells[cellI];
+//            cellsCuts[cell].append(cutI);
+//        }
+//    }
+////    Info << "facesCuts" << facesCuts << nl;
     
     
 ////    //  find facesCuts
@@ -542,10 +548,10 @@ int main(int argc, char *argv[])
 //    
     
     
-    List<labelHashSet> trianglesPerCell(mesh.nCells());
-    computeTrianglesPerCell(trianglesPerCell, mesh, surf);
-    
-    List<DynamicList<DynamicList<label> > > cutsPerCell(mesh.nCells());
+//    List<labelHashSet> trianglesPerCell(mesh.nCells());
+//    computeTrianglesPerCell(trianglesPerCell, mesh, surf);
+//    
+//    List<DynamicList<DynamicList<label> > > cutsPerCell(mesh.nCells());
     
 //    forAll(trianglesPerCell, cellI)
 //    {
@@ -559,34 +565,44 @@ int main(int argc, char *argv[])
 //    }
     
     
-    PackedBoolList cutToRemove(cuts.size(), false);
-    PackedBoolList cutToAdd(cuts.size(), false);
-    
-    forAll(cellsCuts, cellI)
-    {
-        labelList cellCuts = cellsCuts[cellI];
-        
-        if (cellCuts.size() > 3)
-        {
-            labelList triangles = trianglesPerCell[cellI].toc();
-            List<labelHashSet> agglomeration =
-                agglomerateTriangles(triangles, surf);
-            
-            forAll(cellCuts, cutI)
-            {
-                label cellCut = cellCuts[cutI];
-                
-                
-            }
-            
-            
-        }
+//    PackedBoolList cutToRemove(cuts.size(), false);
+//    PackedBoolList cutToAdd(cuts.size(), false);
+//    
+//    forAll(cellsCuts, cellI)
+//    {
+//        labelList cellCuts = cellsCuts[cellI];
+//        
+//        if (cellCuts.size() > 3)
+//        {
+//            labelList triangles = trianglesPerCell[cellI].toc();
+////            Info << triangles << nl;
+//            List<labelHashSet> agglomerations =
+//                agglomerateTriangles(triangles, surf);
+//            
+////            Info << cellI << " " << agglomerations.size() << nl;
+//            
+////            forAll(agglomerations, i)
+////            {
+////                Info << agglomerations[i].toc() << nl;
+////            }
+//            
+////            Info << nl;
+//            
+//            forAll(cellCuts, cutI)
+//            {
+//                label cellCut = cellCuts[cutI];
+//                
+//                
+//            }
+//            
+//            
+//        }
         
 //        if (triangles.size() > 0)
 //        {
 ////            Info << agglomeration << nl << nl;
 //        }
-    }
+//    }
       
     
     
