@@ -15,10 +15,10 @@ FoamFile
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 // Surface to keep to
-surface         "sk50.stl";
+surface         "constant/triSurface/bullet.obj";
 
 // What is outside. These points have to be inside a cell (so not on a face!)
-outsidePoints   ((0 0 0));
+outsidePoints   ((0.00001 0.00001 0.00001));
 
 //
 // Selection of cells to refine
@@ -28,8 +28,8 @@ outsidePoints   ((0 0 0));
 // If < maxEdgeLen select only those cut cells which are closer than
 // curvatureDistance to surface
 // and with cos of angle between normals on surface < curvature.
-maxEdgeLen          0.005;
-curvatureDistance   1.0;
+maxEdgeLen          0.5;
+curvatureDistance   0.01;
 curvature           0.9;
 
 // if > 0: Remove inside cells at every step. Inside is given by number of
@@ -41,7 +41,7 @@ curvature           0.9;
 nCutLayers 0;
 
 // Refine until smallest edge of mesh < minEdgeLen
-minEdgeLen      0.002;
+minEdgeLen      0.01;
 
 // Or until the number of cells would become more than (stops one level before
 // this)
@@ -97,7 +97,7 @@ directions
 
 // refinement level difference between neighbouring cells. Set to large if
 // there is no need for a limit.
-splitLevel      2;
+splitLevel      1;
 
 // Cut purely geometric (will cut hexes through vertices) or take topology
 // into account.

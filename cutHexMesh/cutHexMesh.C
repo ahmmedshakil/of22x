@@ -424,7 +424,7 @@ List<labelHashSet> agglomerateTriangles(
 int main(int argc, char *argv[])
 {
     #include "addOverwriteOption.H"
-    argList::noParallel();
+//    argList::noParallel();
     argList::validArgs.append("input surfaceFile");
 //    argList::validArgs.append("feature angle");
 
