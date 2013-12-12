@@ -90,6 +90,12 @@ class myturbulentTemperatureCoupledBaffleMixedFvPatchScalarField
 
         //- Name of field on the neighbour region
         const word neighbourFieldName_;
+        
+        //- Baffle thickness [m]
+        mutable scalarField thickness_;
+        
+        //- Baffle kappa [W/m/K]
+        mutable scalarField kappa_;
 
 
 public:

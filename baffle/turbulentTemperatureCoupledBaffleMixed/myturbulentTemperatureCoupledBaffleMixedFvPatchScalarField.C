@@ -80,7 +80,9 @@ myturbulentTemperatureCoupledBaffleMixedFvPatchScalarField
 :
     mixedFvPatchScalarField(p, iF),
     temperatureCoupledBase(patch(), dict),
-    neighbourFieldName_(dict.lookup("neighbourFieldName"))
+    neighbourFieldName_(dict.lookup("neighbourFieldName")),
+    thickness_(),
+    kappa_()
 {
     if (!isA<mappedPatchBase>(this->patch().patch()))
     {
@@ -103,6 +105,16 @@ myturbulentTemperatureCoupledBaffleMixedFvPatchScalarField
 
     fvPatchScalarField::operator=(scalarField("value", dict, p.size()));
 
+    if (dict.found("thickness"))
+    {
+        thickness_ = scalarField("thickness", dict, p.size());
+    }
+    
+    if (dict.found("baffleKappa"))
+    {
+        kappa_ = scalarField("baffleKappa", dict, p.size());
+    }
+    
     if (dict.found("refValue"))
     {
         // Full restart
@@ -185,13 +197,25 @@ void myturbulentTemperatureCoupledBaffleMixedFvPatchScalarField::updateCoeffs()
 
     tmp<scalarField> myKDelta = kappa(*this)*patch().deltaCoeffs();
 
-    scalarField kappas(patch().size(), 0.0);
-    forAll(kappas, i)
-    {
-        kappas[i] = 10;
-    }
+//    scalarField kappas(patch().size(), 0.0);
     
-    const scalarField KDeltaSolid(kappas/0.003);
+    scalarField KDeltaSolid(patch().size(), 0.0);
+//    forAll(kappas, i)
+//    {
+//        kappas[i] = 0.2;
+//    }
+    
+    forAll(KDeltaSolid, i)
+    {
+        KDeltaSolid[i] = kappa_[i]/thickness_[i];
+    }
+//    const scalarField KDeltaSolid;
+//    
+//    forAll8
+    
+    
+//    (kappas/60e-6)
+    
     const scalarField alpha(KDeltaSolid);
 
     // Both sides agree on
