@@ -166,8 +166,15 @@ void myturbulentTemperatureCoupledBaffleMixedFvPatchScalarField::updateCoeffs()
     const label samplePatchI = mpp.samplePolyPatch().index();
     const fvPatch& nbrPatch =
         refCast<const fvMesh>(nbrMesh).boundary()[samplePatchI];
+        
+    const fvPatchScalarField& fld =
+        patch().lookupPatchField<volScalarField, scalar>
+        (
+            neighbourFieldName_
+        );
 
-    tmp<scalarField> intFld = patchInternalField();
+
+    scalarField intFld = patchInternalField();
 
 
     // Calculate the temperature by harmonic averaging
@@ -191,18 +198,32 @@ void myturbulentTemperatureCoupledBaffleMixedFvPatchScalarField::updateCoeffs()
     scalarField nbrIntFld(nbrField.patchInternalField());
     mpp.distribute(nbrIntFld);
 
+    scalarField nbrFld =
+        nbrPatch.lookupPatchField<volScalarField, scalar>
+        (
+            neighbourFieldName_
+        );
+    mpp.map().distribute(nbrFld);
+
+//    scalarField nbrFld(nbrField.patch().lookupPatchField());
+//    mpp.distribute(nbrFld);
+
+
     // Swap to obtain full local values of neighbour kappa*delta
     scalarField nbrKDelta(nbrField.kappa(nbrField)*nbrPatch.deltaCoeffs());
     mpp.distribute(nbrKDelta);
 
-    tmp<scalarField> myKDelta = kappa(*this)*patch().deltaCoeffs();
+    scalarField myKDelta = kappa(*this)*patch().deltaCoeffs();
     
     scalarField KDeltaSolid(patch().size(), 0.0);
     
-    forAll(KDeltaSolid, i)
-    {
-        KDeltaSolid[i] = kappa_[i]/thickness_[i];
-    }
+    KDeltaSolid = kappa_/thickness_;
+    
+    const scalarField q
+    (
+        (intFld - nbrIntFld)/(1.0/myKDelta + 1.0/nbrKDelta + 1.0/KDeltaSolid)
+    );
+
 
     // Both sides agree on
     // - temperature : (myKDelta*fld + nbrKDelta*nbrFld)/(myKDelta+nbrKDelta)
@@ -219,12 +240,11 @@ void myturbulentTemperatureCoupledBaffleMixedFvPatchScalarField::updateCoeffs()
     //    - refValue = neighbour value
     //    - mixFraction = nbrKDelta / (nbrKDelta + myKDelta())
 
-
-    this->refValue() = nbrIntFld;
+    this->refValue() = intFld - q/myKDelta;
 
     this->refGrad() = 0.0;
-
-    this->valueFraction() = KDeltaSolid/(KDeltaSolid + myKDelta());
+    
+    this->valueFraction() = 1.0;
 
     mixedFvPatchScalarField::updateCoeffs();
 

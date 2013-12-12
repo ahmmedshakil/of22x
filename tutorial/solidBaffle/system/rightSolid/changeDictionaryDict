@@ -41,8 +41,8 @@ dictionaryReplacement
                 neighbourFieldName T;
                 kappa           solidThermo;
                 kappaName       none;
-                thickness       uniform 60e-6;
-                baffleKappa     uniform .1;
+                thickness       uniform .1;
+                baffleKappa     uniform 100
                 value           uniform 300;
             }
             maxX
@@ -51,7 +51,7 @@ dictionaryReplacement
                 kappa           solidThermo; // fluidThermo, solidThermo or lookup
 //                Ta              uniform 300.0; // ambient temperature /[K]
 //                h               uniform 30.0; // heat transfer coeff /[W/K/m2]
-                q               uniform 20000; // heat transfer coeff /[W/K/m2]
+                q               uniform 10000; // heat transfer coeff /[W/K/m2]
                 value uniform   300.0; // initial temperature / [K]
                 kappaName       none;
             }
