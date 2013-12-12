@@ -196,27 +196,13 @@ void myturbulentTemperatureCoupledBaffleMixedFvPatchScalarField::updateCoeffs()
     mpp.distribute(nbrKDelta);
 
     tmp<scalarField> myKDelta = kappa(*this)*patch().deltaCoeffs();
-
-//    scalarField kappas(patch().size(), 0.0);
     
     scalarField KDeltaSolid(patch().size(), 0.0);
-//    forAll(kappas, i)
-//    {
-//        kappas[i] = 0.2;
-//    }
     
     forAll(KDeltaSolid, i)
     {
         KDeltaSolid[i] = kappa_[i]/thickness_[i];
     }
-//    const scalarField KDeltaSolid;
-//    
-//    forAll8
-    
-    
-//    (kappas/60e-6)
-    
-    const scalarField alpha(KDeltaSolid);
 
     // Both sides agree on
     // - temperature : (myKDelta*fld + nbrKDelta*nbrFld)/(myKDelta+nbrKDelta)
@@ -238,7 +224,7 @@ void myturbulentTemperatureCoupledBaffleMixedFvPatchScalarField::updateCoeffs()
 
     this->refGrad() = 0.0;
 
-    this->valueFraction() = alpha/(alpha + myKDelta());
+    this->valueFraction() = KDeltaSolid/(KDeltaSolid + myKDelta());
 
     mixedFvPatchScalarField::updateCoeffs();
 
