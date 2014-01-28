@@ -41,12 +41,12 @@ mixture
     thermodynamics
     {
         Hf      0;
-        Cp      450;
+        Cp      10;
     }
 
     equationOfState
     {
-        rho     8000;
+        rho     1000000;
     }
 }
 

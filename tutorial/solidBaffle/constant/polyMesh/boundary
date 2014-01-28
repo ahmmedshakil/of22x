@@ -20,38 +20,38 @@ FoamFile
     maxY
     {
         type            wall;
-        nFaces          20;
-        startFace       19;
+        nFaces          2;
+        startFace       1;
     }
     minX
     {
         type            patch;
         nFaces          1;
-        startFace       39;
+        startFace       3;
     }
     maxX
     {
         type            patch;
         nFaces          1;
-        startFace       40;
+        startFace       4;
     }
     minY
     {
         type            wall;
-        nFaces          20;
-        startFace       41;
+        nFaces          2;
+        startFace       5;
     }
     minZ
     {
         type            wall;
-        nFaces          20;
-        startFace       61;
+        nFaces          2;
+        startFace       7;
     }
     maxZ
     {
         type            wall;
-        nFaces          20;
-        startFace       81;
+        nFaces          2;
+        startFace       9;
     }
 )
 

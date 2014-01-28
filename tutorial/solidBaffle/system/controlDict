@@ -23,7 +23,7 @@ startTime       0;
 
 stopAt          endTime;
 
-endTime         500;
+endTime         2000;
 
 deltaT          1;
 
@@ -31,7 +31,7 @@ writeControl    timeStep;
 
 writeInterval   100;
 
-purgeWrite      0;
+purgeWrite      1;
 
 writeFormat     ascii;
 
@@ -47,7 +47,7 @@ runTimeModifiable true;
 
 libs
 (
-    "myturbulentTemperatureCoupledBaffleMixedFvPatchScalarField.so"
+    "thermalContactResistanceFvPatchScalarField.so"
 );
 
 

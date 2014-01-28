@@ -1,3 +1,0 @@
-myturbulentTemperatureCoupledBaffleMixedFvPatchScalarField.C
-
-LIB = $(FOAM_USER_LIBBIN)/myturbulentTemperatureCoupledBaffleMixedFvPatchScalarField
