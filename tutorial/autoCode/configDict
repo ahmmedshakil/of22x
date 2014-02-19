@@ -1,0 +1,40 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  2.3.x                                 |
+|   \\  /    A nd           | Web:      www.OpenFOAM.org                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "";
+    object      configDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+global
+{
+    elementLength   0.01;
+    fluidDistance   0.01;
+    velocity        (0. 0. 0.);
+    gravity         (0. 0. -9.81);
+    tunnel          False;
+    temperature     293.15;
+    temperatureIn   293.15;
+    boundingBox     (0. 0. 0. .1 .1 .1);
+    bound
+    {
+        minX 0.;
+        minY 0.;
+        minZ 0.;
+        maxX 1.;
+        maxY 1.;
+        maxZ 1.;
+    }
+}
+
+
+// ************************************************************************* //
